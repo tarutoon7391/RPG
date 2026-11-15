@@ -1,7 +1,7 @@
 // 一人称の手と武器（3DGAME の RPG の viewmodel.js の動きを移植）。別のシーンにして、深度を消してから上に描く
 // 腕の作り：肩（off）→ 回転（pivot）→ 0.42m 先に手（hand）→ 持ち方（holder）→ ひねり（twist）→ 武器
 // 振り方：剣は横薙ぎ→逆へ横薙ぎ→振りかぶって縦斬り（斧・鎌は刃を縦に）／槍は突き／拳は左右交互の突き／銃は反動／杖は前へ突き出して放つ
-// 覗き込み（ADS）：銃・弓は画面の真ん中へ構える（スコープのときは手を隠す）
+// 覗き込み（ADS）：武器は右下へ避けて、照準器は画面に重ねて描く（スコープのときは手を隠す）
 import * as THREE from 'three';
 import { buildSkinned, disposeBuilt } from './view.js';
 import { HOLD_ROT, HOLD_POS } from './model.js';
@@ -273,12 +273,12 @@ export function createViewModel(app) {
         if (actT >= d) action = null;
       }
     }
-    // 覗き込み：銃・弓を画面の真ん中へ寄せて、照準を目の前に
+    // 覗き込み
     if (ads > 0.001) {
-      // 武器（手からずらして持っている分も含めて）が画面の真ん中に来るように
-      Rp.x += (-SHOULDER[0] - R.holder.position.x) * ads;
-      Rp.y += (0.3 - R.holder.position.y) * ads;
-      Rp.z += 0.1 * ads;
+      // 武器は右下へ避ける（真ん中の十字・照準器に絶対かぶらないように）
+      Rp.x += 0.1 * ads;
+      Rp.y -= 0.1 * ads;
+      Rp.z += 0.06 * ads;
     }
     const sway = 1 - ads * 0.85;
     root.position.set(
