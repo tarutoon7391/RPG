@@ -2,9 +2,12 @@
 //   ?size=64  → 一辺 64km（既定 32km）。8 / 16 / 32 / 64 / 128 を想定
 //   ?seed=123 → 地形のシード
 const q = new URLSearchParams(location.search);
-const sizeKm = Math.min(128, Math.max(4, Number(q.get('size')) || 32));
+// モード：br（バトロワの島。/ ）／ world（広大マップのテスト。/world/）。Worker からは ?mode= で渡す
+const MODE = q.get('mode') || (typeof document !== 'undefined' && location.pathname.startsWith('/world') ? 'world' : 'br');
+const sizeKm = MODE === 'br' ? 2 : Math.min(128, Math.max(4, Number(q.get('size')) || 32));
 
 export const WORLD = {
+  mode: MODE,
   sizeKm,
   size: sizeKm * 1024, // 一辺（m）。2 のべき乗にしてクアッドツリーで割り切れるようにする
   seed: Number(q.get('seed')) || 20261115,
@@ -12,12 +15,13 @@ export const WORLD = {
   sea: 0, // 海面の高さ
 };
 WORLD.half = WORLD.size / 2;
+WORLD.limit = MODE === 'br' ? 560 : WORLD.half - 2; // 歩ける範囲（島は周りの海まで）
 WORLD.regions = WORLD.size / WORLD.regionSize; // 一辺のリージョン数
 
 /** 地形の描画 */
 export const TERRAIN = {
   seg: 32, // 1タイルの分割数
-  minTile: 64, // 一番細かいタイルの一辺（m）→ 足元は 2m 間隔
+  minTile: MODE === 'br' ? 32 : 64, // 一番細かいタイルの一辺（m）→ 足元は 1m（島）/ 2m 間隔
   skirt: 0.12, // 継ぎ目を隠すスカートの深さ（タイルの一辺に対する割合）
 };
 
@@ -34,9 +38,9 @@ export const MOVE = {
 
 /** 画質の初期値（ポーズ画面で変えられる） */
 export const QUALITY_DEFAULT = {
-  viewDist: 12000, // 霧で見えなくなる距離（m）
-  detail: 1.6, // 地形の細かさ（タイルを分割し始める距離の倍率）
-  propDist: 5, // 木や岩を出す範囲（128m セルいくつぶん）
+  viewDist: MODE === 'br' ? 2600 : 12000, // 霧で見えなくなる距離（m）
+  detail: MODE === 'br' ? 2.2 : 1.6, // 地形の細かさ（タイルを分割し始める距離の倍率）
+  propDist: MODE === 'br' ? 5 : 5, // 木や岩を出す範囲（128m セルいくつぶん）
   shadows: true,
   pixelRatio: 1.5,
 };

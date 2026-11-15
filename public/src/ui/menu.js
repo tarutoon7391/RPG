@@ -29,19 +29,19 @@ export function createMenu() {
       el.querySelector('.menu-bar div').style.width = `${Math.round(ratio * 100)}%`;
       el.querySelector('.menu-note').textContent = text;
     },
-    title({ hasSave, stats, onNew, onContinue }) {
+    title({ hasSave, stats, onNew, onContinue, heading = 'RPG <small>ワールドテスト</small>', sub = `${WORLD.sizeKm}km 四方の大陸を歩き回るだけのテスト版`, newLabel = 'はじめから（王都から）', keys, note = '広さを変える：URL の末尾に ?size=8 / 16 / 32 / 64 / 128（km）' }) {
       mode = 'title';
       show(`
-        <h1>RPG <small>ワールドテスト</small></h1>
-        <p class="menu-sub">${WORLD.sizeKm}km 四方の大陸を歩き回るだけのテスト版</p>
+        <h1>${heading}</h1>
+        <p class="menu-sub">${sub}</p>
         <ul class="menu-stats">${stats.map((s) => `<li>${s}</li>`).join('')}</ul>
         <div class="menu-btns">
           ${hasSave ? '<button type="button" data-b="cont" class="primary">つづきから</button>' : ''}
-          <button type="button" data-b="new" class="${hasSave ? '' : 'primary'}">はじめから（王都から）</button>
+          <button type="button" data-b="new" class="${hasSave ? '' : 'primary'}">${newLabel}</button>
         </div>
-        <pre class="menu-keys">WASD：移動　Shift：ダッシュ　Space：ジャンプ　マウス：視点（クリックでロック）
-F：調べる・入る　M：マップ　V：一人称／三人称　G：爆速（テスト用）　F3：デバッグ表示　Esc：ポーズ</pre>
-        <p class="menu-note">広さを変える：URL の末尾に ?size=8 / 16 / 32 / 64 / 128（km）</p>`);
+        <pre class="menu-keys">${keys || `WASD：移動　Shift：ダッシュ　Space：ジャンプ　マウス：視点（クリックでロック）
+F：調べる・入る　M：マップ　V：一人称／三人称　G：爆速（テスト用）　F3：デバッグ表示　Esc：ポーズ`}</pre>
+        <p class="menu-note">${note}</p>`);
       el.querySelector('[data-b="new"]').onclick = onNew;
       el.querySelector('[data-b="cont"]')?.addEventListener('click', onContinue);
     },

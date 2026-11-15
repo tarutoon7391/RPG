@@ -1,0 +1,319 @@
+// バトロワの島（マップだけのテスト版）：ロード → タイトル → 降下地点を選ぶ → 歩き回る
+import { createApp } from '/shared/engine.js';
+import { createInput } from '/shared/input.js';
+import { QUALITY_DEFAULT, MOVE, WORLD } from '../config.js';
+import { createIsland, areaAt, AREAS } from './island.js';
+import { planIsland, buildIsland, TUNNELS } from './build.js';
+import { createPlatforms } from './platforms.js';
+import { createIslandMap } from './map.js';
+import { createTiles } from '../world/tiles.js';
+import { createProps } from '../world/props.js';
+import { createColliders } from '../world/colliders.js';
+import { createEnv } from '../world/env.js';
+import { createPlayer, emptyIntent } from '../player.js';
+import { createCameraRig } from '../camera.js';
+import { createHud } from '../ui/hud.js';
+import { createMenu } from '../ui/menu.js';
+import { createTouch, isTouchDevice } from '../ui/touch.js';
+import { esc, fmtDist } from '../util.js';
+
+const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
+const DROP_HEIGHT = 140; // 降下を始める高さ（地面から）
+
+export async function startIsland() {
+  const q = { ...QUALITY_DEFAULT };
+  try { Object.assign(q, JSON.parse(localStorage.getItem('rpg:br:quality') || '{}')); } catch { /* 既定値 */ }
+  const app = createApp({ far: 20000, logDepth: true, maxPixelRatio: q.pixelRatio });
+  const { renderer, scene, camera } = app;
+  const input = createInput(renderer.domElement);
+  const menu = createMenu();
+  const touchMode = isTouchDevice();
+
+  menu.loading('島を作っています', 0.1);
+  await nextFrame();
+  const island = createIsland();
+  const layout = planIsland(island);
+  const env = createEnv(scene);
+  const colliders = createColliders();
+  const platforms = createPlatforms();
+  const built = buildIsland(scene, island, layout, colliders, platforms);
+  menu.loading('地形を組み立てています', 0.4);
+  await nextFrame();
+  const tiles = createTiles(scene, island, q);
+  const props = createProps(scene, island, q, colliders);
+  const player = createPlayer(scene);
+  const cam = createCameraRig(camera);
+  const hud = createHud();
+  menu.loading('地図を描いています', 0.7);
+  await nextFrame();
+  const map = createIslandMap(island, built, { onPick: (p) => drop(p.x, p.z), onClose: () => resumeLock() });
+  const touch = touchMode ? createTouch({ onPause: () => pause(), onView: () => toggleView(), onMap: () => openMap(), onBoost: () => toggleBoost() }) : null;
+  touch?.setVisible(false);
+  map.setMiniVisible(false);
+  env.outdoor(q.viewDist);
+  env.sun.castShadow = q.shadows;
+  tiles.update(0, 0, 300, 0, true);
+  props.update(0, 0, 0, true);
+
+  let state = 'title';
+  let areaId = null;
+  let areaT = 0;
+  let debugOn = false;
+  let fps = 60;
+  let expectUnlock = false;
+  const opened = new Set();
+  const intent = emptyIntent();
+
+  // ---- 乗れる板込みの地面 ----
+  const ground = (x, z) => Math.max(island.height(x, z), platforms.heightAt(x, z, player.pos.y));
+  const playEnv = {
+    water: true,
+    ground,
+    move(pos, dx, dz) {
+      const r = colliders.resolve(pos.x + dx, pos.z + dz, MOVE.radius, pos.y);
+      pos.x = r.x;
+      pos.z = r.z;
+    },
+  };
+  const camEnv = { ground: (x, z) => island.height(x, z, 3), blocked: (x, z, y) => colliders.hits(x, z, y), ceil: Infinity };
+
+  // ---- 入力 ----
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'F3') { e.preventDefault(); debugOn = !debugOn; if (!debugOn) hud.debug(''); }
+  });
+  renderer.domElement.addEventListener('click', () => {
+    if (state === 'play' && !touchMode && !hud.dialogOpen) input.lockPointer();
+  });
+  document.addEventListener('pointerlockchange', () => {
+    if (document.pointerLockElement) return;
+    if (expectUnlock) { expectUnlock = false; return; }
+    if (state === 'play' && !touchMode && !hud.dialogOpen) pause();
+  });
+  const unlock = () => { if (document.pointerLockElement) { expectUnlock = true; input.unlockPointer(); } };
+  function resumeLock() {
+    state = 'play';
+    if (!touchMode) input.lockPointer();
+  }
+
+  function showTitle() {
+    state = 'title';
+    unlock();
+    hud.root.style.display = 'none';
+    map.setMiniVisible(false);
+    touch?.setVisible(false);
+    menu.title({
+      hasSave: false,
+      heading: 'BATTLE ISLAND <small>マップテスト</small>',
+      sub: '8人用バトルロイヤルの島（約 1km 四方）。いまは歩き回れるだけ',
+      newLabel: '降下地点を選ぶ',
+      stats: [
+        `エリア <b>${AREAS.filter((a) => a.r).length}</b>`,
+        `宝箱 <b>${built.chests.length}</b>`,
+        `地下の抜け道 <b>${TUNNELS.length}</b>`,
+        `端から端までダッシュで約 <b>${Math.round(900 / MOVE.dash)}</b> 秒`,
+      ],
+      keys: 'WASD：移動　Shift：ダッシュ　Space：ジャンプ　マウス：視点（クリックでロック）\nF：調べる　M：地図　V：一人称／三人称　G：爆速（テスト用）　F3：デバッグ　Esc：ポーズ',
+      note: '広大マップのテストは <a href="/world/" style="color:#58a6ff">/world/</a>',
+      onNew: () => { menu.hide(); openDrop(); },
+    });
+  }
+
+  function openDrop() {
+    state = 'map';
+    map.open(null, { drop: true });
+  }
+
+  /** (x, z) の上空から降下 */
+  function drop(x, z) {
+    menu.hide();
+    hud.root.style.display = 'block';
+    map.setMiniVisible(true);
+    touch?.setVisible(true);
+    player.hero.group.visible = !cam.fps;
+    hud.crosshair(cam.fps && !touchMode);
+    const g = Math.max(island.height(x, z), 0);
+    player.place(x, z, g + DROP_HEIGHT);
+    player.grounded = false;
+    player.gliding = true;
+    cam.yaw = Math.atan2(-x, -z) || Math.PI; // 島の中心を向いて降りる
+    cam.look = -0.6;
+    tiles.update(x, z, DROP_HEIGHT, 0, true);
+    props.update(x, z, 0, true);
+    areaId = null;
+    hud.toast('降下中… WASD で着地点を調整できる', 3);
+    resumeLock();
+  }
+
+  function pause() {
+    if (state !== 'play') return;
+    state = 'pause';
+    unlock();
+    const a = areaAt(player.pos.x, player.pos.z);
+    menu.pause({
+      q,
+      info: `いま：${a ? esc(a.name) : '野原'}　開けた宝箱 ${opened.size} / ${built.chests.length}`,
+      onResume: () => { menu.hide(); resumeLock(); },
+      onMap: () => { menu.hide(); state = 'play'; openMap(); },
+      onTitle: () => showTitle(),
+      onChange: (k) => {
+        localStorage.setItem('rpg:br:quality', JSON.stringify(q));
+        if (k === 'viewDist') env.outdoor(q.viewDist);
+        if (k === 'shadows') env.sun.castShadow = q.shadows;
+        if (k === 'pixelRatio') { app.pixelRatioMax = q.pixelRatio; app.resize(); }
+      },
+    });
+  }
+  function openMap() {
+    if (state !== 'play') return;
+    state = 'map';
+    unlock();
+    map.open({ x: player.pos.x, z: player.pos.z, yaw: cam.yaw });
+  }
+  function toggleView() {
+    cam.setMode(cam.fps ? 'tps' : 'fps');
+    player.hero.group.visible = !cam.fps;
+    hud.crosshair(cam.fps && !touchMode);
+  }
+  function toggleBoost() {
+    player.boost = !player.boost;
+    hud.toast(player.boost ? '爆速モード ON（テスト用）' : '爆速モード OFF');
+    return player.boost;
+  }
+
+  // ---- 調べる ----
+  function interact(a) {
+    if (!a) return;
+    if (a.kind === 'chest') {
+      if (opened.has(a.chest)) { hud.toast('もう空っぽだ'); return; }
+      opened.add(a.chest);
+      hud.toast(`宝箱を開けた！（中身は今後の実装）　${opened.size} / ${built.chests.length}`, 2.6);
+    } else if (a.kind === 'tunnel') {
+      const here = TUNNELS.find((t) => t.id === a.tunnel);
+      unlock();
+      hud.dialog(`<b>${esc(here.name)}</b><br>地下の抜け道。どこへ出る？`, [
+        ...TUNNELS.filter((t) => t.id !== here.id).map((t) => ({ label: `${t.id}：${t.name}`, onClick: () => { exitTunnel(t); resumeLock(); } })),
+        { label: 'やめる', onClick: () => resumeLock() },
+      ]);
+    }
+  }
+  function exitTunnel(t) {
+    const act = built.acts.find((a) => a.kind === 'tunnel' && a.tunnel === t.id);
+    // 入口の少し外（島の中心側）に出る
+    const dx = -act.x;
+    const dz = -act.z;
+    const l = Math.hypot(dx, dz) || 1;
+    const x = act.x + (dx / l) * 5;
+    const z = act.z + (dz / l) * 5;
+    player.place(x, z, ground(x, z));
+    cam.yaw = Math.atan2(dx, dz);
+    tiles.update(x, z, 2, 0, true);
+    props.update(x, z, 0, true);
+    hud.toast(`${t.name}から出た`);
+  }
+
+  // ---- 毎フレーム ----
+  const dir = { x: 0, z: 0 };
+  let lastNow = performance.now();
+  app.start((dt, t) => {
+    const now = performance.now();
+    fps += (1000 / Math.max(now - lastNow, 1) - fps) * 0.05;
+    lastNow = now;
+    hud.tick(dt);
+    built.animate(dt);
+    if (state === 'title' || (state === 'map' && map.dropMode)) {
+      // タイトル：島の上をぐるっと回る
+      const a = t * 0.04;
+      camera.position.set(Math.sin(a) * 620, 230, Math.cos(a) * 620);
+      camera.lookAt(0, 20, 0);
+      tiles.update(camera.position.x, camera.position.z, 200, 5);
+      env.follow(camera, { x: 0, y: 0, z: 0 }, t);
+      input.endFrame();
+      return;
+    }
+    if (state === 'play' && !hud.dialogOpen) readIntent();
+    else {
+      emptyIntent(intent);
+      if (hud.dialogOpen && input.wasPressed('Escape')) { hud.closeDialog(); resumeLock(); }
+      if (state === 'map' && (input.wasPressed('KeyM') || input.wasPressed('Escape'))) map.close();
+    }
+    const w = cam.toWorld(intent.moveX, intent.moveZ);
+    const l = Math.hypot(w.x, w.z);
+    dir.x = l > 1 ? w.x / l : w.x;
+    dir.z = l > 1 ? w.z / l : w.z;
+    if (state === 'play') player.update(dt, intent, dir, playEnv);
+    cam.update(dt, player, camEnv);
+    env.follow(camera, player.pos, t);
+    const cy = camera.position.y - island.height(camera.position.x, camera.position.z, 3);
+    tiles.update(camera.position.x, camera.position.z, cy, 5);
+    props.update(player.pos.x, player.pos.z, 3);
+
+    const act = player.gliding ? null : built.nearest(player.pos.x, player.pos.z);
+    hud.setPrompt(act ? (act.kind === 'chest' && opened.has(act.chest) ? '空の宝箱' : act.label) : '');
+    if (intent.interact) interact(act);
+    areaT -= dt;
+    if (areaT <= 0) { areaT = 0.3; checkArea(); }
+    hud.compass(cam.yaw);
+    updateStatus();
+    map.drawMini(player.pos.x, player.pos.z, cam.yaw);
+    if (debugOn) hud.debug(debugText());
+    input.endFrame();
+    touch?.endFrame();
+  });
+
+  function readIntent() {
+    emptyIntent(intent);
+    let mx = 0;
+    let mz = 0;
+    if (input.isDown('KeyW') || input.isDown('ArrowUp')) mz += 1;
+    if (input.isDown('KeyS') || input.isDown('ArrowDown')) mz -= 1;
+    if (input.isDown('KeyD') || input.isDown('ArrowRight')) mx += 1;
+    if (input.isDown('KeyA') || input.isDown('ArrowLeft')) mx -= 1;
+    intent.dash = input.isDown('ShiftLeft') || input.isDown('ShiftRight');
+    intent.jump = input.isDown('Space');
+    intent.interact = input.wasPressed('KeyF') || input.wasPressed('KeyE');
+    if (touch) {
+      const s = touch.state;
+      if (Math.hypot(s.x, s.z) > 0.08) { mx = s.x; mz = s.z; }
+      intent.dash = intent.dash || s.dash;
+      intent.jump = intent.jump || s.held.has('jump');
+      intent.interact = intent.interact || s.pressed.has('interact');
+      cam.input(s.dx, s.dy, 0);
+    }
+    intent.moveX = mx;
+    intent.moveZ = mz;
+    if (input.mouse.locked) cam.input(input.mouse.dx, input.mouse.dy, input.mouse.wheel);
+    else if (!cam.fps) cam.input(0, 0, input.mouse.wheel);
+    if (input.wasPressed('KeyV')) toggleView();
+    if (input.wasPressed('KeyG')) toggleBoost();
+    if (input.wasPressed('KeyM')) openMap();
+  }
+
+  function checkArea() {
+    const a = areaAt(player.pos.x, player.pos.z);
+    const id = a ? a.id : 'field';
+    if (id === areaId) return;
+    areaId = id;
+    if (a && !player.gliding) hud.banner(a.name, '');
+  }
+
+  function updateStatus() {
+    const a = areaAt(player.pos.x, player.pos.z);
+    const alt = player.pos.y - Math.max(0, island.height(player.pos.x, player.pos.z));
+    hud.setStatus(`<div class="st-region">${a ? esc(a.name) : '野原'}</div><div class="st-sub">${player.gliding ? `<b class="st-swim">降下中　地面まで ${Math.round(alt)}m</b>` : `標高 ${Math.round(player.pos.y)}m${player.swimming ? '　<b class="st-swim">泳いでいる</b>' : ''}`}</div><div class="st-sub">X ${Math.round(player.pos.x)}　Z ${Math.round(player.pos.z)}　島の中心まで ${fmtDist(Math.hypot(player.pos.x, player.pos.z))}</div>${player.boost ? '<div class="st-boost">爆速モード</div>' : ''}`);
+  }
+
+  function debugText() {
+    const info = renderer.info;
+    return [
+      `FPS ${fps.toFixed(0)}　描画 ${info.render.calls} 回　ポリゴン ${(info.render.triangles / 1000).toFixed(0)}k`,
+      `地形タイル 表示 ${tiles.stats.visible} / 作成 ${tiles.stats.built}　草木 ${props.stats.instances} 本　当たり判定 ${colliders.count} 組　板 ${platforms.list.length}`,
+      `位置 ${player.pos.x.toFixed(1)}, ${player.pos.y.toFixed(1)}, ${player.pos.z.toFixed(1)}　速さ ${player.speed.toFixed(1)}m/s`,
+      `ワールド ${WORLD.size}m（島）`,
+    ].join('\n');
+  }
+
+  if (new URLSearchParams(location.search).has('debug')) {
+    window.__rpg = { island, built, player, cam, drop, exitTunnel, toggleView, interact, platforms, get state() { return state; }, stats: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, tiles: { ...tiles.stats }, props: { ...props.stats }, fps }) };
+  }
+  showTitle();
+}

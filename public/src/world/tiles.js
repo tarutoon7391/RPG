@@ -57,7 +57,8 @@ export function createTiles(scene, terrain, quality) {
   // 作業用の配列（縁を1つ広げた高さ）
   const W = SEG + 3;
   const hbuf = new Float32Array(W * W);
-  const fbuf = new Float32Array(V1 * V1 * 8);
+  const NF = 9;
+  const fbuf = new Float32Array(V1 * V1 * NF);
 
   function octFor(size) {
     if (size <= 128) return 6;
@@ -80,9 +81,9 @@ export function createTiles(scene, terrain, quality) {
         const inner = gx >= 1 && gz >= 1 && gx <= V1 && gz <= V1;
         if (inner) {
           hbuf[gz * W + gx] = terrain.sample(x, z, f, oct);
-          const o = ((gz - 1) * V1 + (gx - 1)) * 8;
+          const o = ((gz - 1) * V1 + (gx - 1)) * NF;
           fbuf[o] = f.land; fbuf[o + 1] = f.temp; fbuf[o + 2] = f.moist; fbuf[o + 3] = f.mount;
-          fbuf[o + 4] = f.vol; fbuf[o + 5] = f.dry; fbuf[o + 6] = f.cold; fbuf[o + 7] = f.wet;
+          fbuf[o + 4] = f.vol; fbuf[o + 5] = f.dry; fbuf[o + 6] = f.cold; fbuf[o + 7] = f.wet; fbuf[o + 8] = f.river || 0;
         } else {
           hbuf[gz * W + gx] = terrain.height(x, z, oct);
         }
@@ -111,9 +112,9 @@ export function createTiles(scene, terrain, quality) {
         const l = Math.hypot(nx, ny, nz);
         nx /= l; ny /= l; nz /= l;
         nor[i * 3] = nx; nor[i * 3 + 1] = ny; nor[i * 3 + 2] = nz;
-        const o = i * 8;
+        const o = i * NF;
         f.land = fbuf[o]; f.temp = fbuf[o + 1]; f.moist = fbuf[o + 2]; f.mount = fbuf[o + 3];
-        f.vol = fbuf[o + 4]; f.dry = fbuf[o + 5]; f.cold = fbuf[o + 6]; f.wet = fbuf[o + 7]; f.h = h;
+        f.vol = fbuf[o + 4]; f.dry = fbuf[o + 5]; f.cold = fbuf[o + 6]; f.wet = fbuf[o + 7]; f.river = fbuf[o + 8]; f.h = h;
         terrain.color(x0 + x * step, z0 + z * step, f, ny, col);
         clr[i * 3] = col[0]; clr[i * 3 + 1] = col[1]; clr[i * 3 + 2] = col[2];
       }

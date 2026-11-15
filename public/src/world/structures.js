@@ -6,11 +6,11 @@ import { mulberry32 } from '../noise.js';
 import { paint } from './props.js';
 import { BIOMES } from './terrain.js';
 
-const lit = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
-const glow = new THREE.MeshBasicMaterial({ vertexColors: true, fog: true });
+export const lit = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+export const glow = new THREE.MeshBasicMaterial({ vertexColors: true, fog: true });
 
 /** 組み立て用の箱 */
-function kit() {
+export function kit() {
   const solid = [];
   const shine = [];
   const cols = []; // ローカル座標の当たり判定
@@ -31,7 +31,7 @@ function kit() {
 }
 
 /** ローカル → ワールド（y 回転込み） */
-function toWorld(p, lx, lz) {
+export function toWorld(p, lx, lz) {
   const c = Math.cos(p.yaw || 0);
   const s = Math.sin(p.yaw || 0);
   return { x: p.x + lx * c + lz * s, z: p.z - lx * s + lz * c };
@@ -41,7 +41,7 @@ function toWorld(p, lx, lz) {
 const WALLS = [0xe8dcc0, 0xd9c7a3, 0xc8b496, 0xefe6d2, 0xbfa88a];
 const ROOFS = [0xa0442f, 0x6b4a8a, 0x3f5f8f, 0x8a5a2b, 0x4d7a45];
 
-function buildTown(p, k, rnd, { capital = false } = {}) {
+export function buildTown(p, k, rnd, { capital = false } = {}) {
   const R = p.r;
   // 石畳
   k.cyl(R - 4, R - 4, 0.12, capital ? 0xb8b0a0 : 0xa89c84, 0, -0.06, 0, 48);
@@ -123,7 +123,7 @@ function buildTown(p, k, rnd, { capital = false } = {}) {
   }
 }
 
-function buildCapital(p, k, rnd) {
+export function buildCapital(p, k, rnd) {
   buildTown(p, k, rnd, { capital: true });
   // 王城（中心から北＝-z 側）
   const cz = -60;
@@ -157,7 +157,7 @@ function buildStage(p, k, rnd, reg) {
 }
 
 // ------------------------------------------------------------ ダンジョン入口
-function buildDungeon(p, k, rnd, T) {
+export function buildDungeon(p, k, rnd, T) {
   const t = p.type;
   if (t === 'cave' || t === 'ice' || t === 'lava') {
     const rc = t === 'ice' ? 0xa9d4ec : t === 'lava' ? 0x3a2622 : 0x7a7064;

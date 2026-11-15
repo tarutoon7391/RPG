@@ -1,8 +1,9 @@
 # RPG 開発規約
 
-3DGAME（tarutoon7391/3DGAME）の 3DRPG と同じ仕組みで作る、超広域オープンワールド RPG。
-いまは「どこまで広いマップが作れるか」を試す段階で、**歩き回れるマップだけ**ある（戦闘・NPC・アイテムはまだ無い）。
-設計の正本は `docs/world.md`。
+3DGAME（tarutoon7391/3DGAME）の 3DRPG と同じ仕組みで作る 3D ゲーム。
+- `/`：8人用バトルロイヤルの島 BATTLE ISLAND（`public/src/br/`）。いまはマップだけ。正本は `docs/island.md`
+- `/world/`：広大マップのテスト（`public/src/game.js` ほか）。正本は `docs/world.md`
+地形・草木・当たり判定・プレイヤー・カメラ・HUD は両方で共通（`public/src/world/`・`player.js` など）。
 
 ## 構成
 

@@ -11,7 +11,7 @@ export function createEnv(scene) {
     fog: false,
     uniforms: { top: { value: new THREE.Color(0x3d7fd1) }, horizon: { value: new THREE.Color(0xc8dff0) }, bottom: { value: new THREE.Color(0x9fb8c8) } },
     vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); gl_Position.z = gl_Position.w; }',
-    fragmentShader: 'uniform vec3 top; uniform vec3 horizon; uniform vec3 bottom; varying vec3 vP; void main(){ float y = vP.y; vec3 c = y > 0.0 ? mix(horizon, top, pow(clamp(y*1.6,0.0,1.0),0.7)) : mix(horizon, bottom, clamp(-y*4.0,0.0,1.0)); gl_FragColor = vec4(c,1.0); }',
+    fragmentShader: 'uniform vec3 top; uniform vec3 horizon; uniform vec3 bottom; varying vec3 vP; void main(){ float y = vP.y; vec3 c = y > 0.0 ? mix(horizon, top, pow(clamp(y*1.6,0.0,1.0),0.7)) : mix(horizon, bottom, clamp(-y*4.0,0.0,1.0)); gl_FragColor = vec4(c,1.0);\n#include <colorspace_fragment>\n}',
   });
   const sky = new THREE.Mesh(skyGeo, skyMat);
   sky.scale.setScalar(1000);

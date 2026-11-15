@@ -16,6 +16,7 @@ export function createMap(world, { onWarp, onClose }) {
   // 絵は Web Worker が少しずつ送ってくる（メインスレッドを止めない）
   const qs = new URLSearchParams(location.search);
   qs.set('res', RES);
+  qs.set('mode', 'world');
   const worker = new Worker(new URL(`./mapworker.js?${qs}`, import.meta.url), { type: 'module' });
   worker.onmessage = (e) => {
     const m = e.data;
