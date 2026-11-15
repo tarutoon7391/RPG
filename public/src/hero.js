@@ -90,5 +90,11 @@ export function makeHero() {
     root.position.y = Math.abs(Math.cos(phase)) * 0.06 * amp;
     root.rotation.x = swim ? 1.2 : 0;
   }
-  return { group, root, animate, setWeapon, attack };
+  const tmpV = new THREE.Vector3();
+  /** 右手の先のワールド座標（三人称で弾が出る位置） */
+  function handWorld(out = new THREE.Vector3()) {
+    group.updateMatrixWorld(true);
+    return out.copy(handR.localToWorld(tmpV.set(0, -0.75, 0)));
+  }
+  return { group, root, animate, setWeapon, attack, handWorld };
 }

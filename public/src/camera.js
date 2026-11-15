@@ -55,9 +55,10 @@ export function createCameraRig(camera) {
         return;
       }
       const t = rig.tps;
-      const tx = me.pos.x;
-      const ty = me.pos.y + 1.6;
-      const tz = me.pos.z;
+      // 肩越し：注視点を頭の少し上・右肩側にずらす（画面中央の十字が遠くを向くように）
+      const tx = me.pos.x - Math.cos(rig.yaw) * 0.6;
+      const ty = me.pos.y + 2.3;
+      const tz = me.pos.z + Math.sin(rig.yaw) * 0.6;
       const back = rig.yaw + Math.PI;
       const cp = Math.cos(t.pitch);
       const dx = Math.sin(back) * cp;

@@ -21,6 +21,9 @@ import { createInventory } from '../weapons/inventory.js';
 import { createViewModel } from '../weapons/viewmodel.js';
 import { createGallery } from '../weapons/gallery.js';
 import { WEAPON_LIST, rollRarity, RARITIES, WEAPONS_BY_ID } from '../weapons/catalog.js';
+import { createSights, sightOf, SIGHT_FOV } from '../weapons/sights.js';
+import { createProjectiles, shotOf } from '../weapons/projectiles.js';
+import * as THREE from 'three';
 
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
 const DROP_HEIGHT = 140; // 降下を始める高さ（地面から）
@@ -63,12 +66,70 @@ export async function startIsland() {
   // ---- 武器 ----
   const loot = createLoot(scene);
   const viewmodel = createViewModel(app);
-  const inv = createInventory({ onChange: (slot) => { viewmodel.set(slot); player.hero.setWeapon(slot); } });
+  const sights = createSights();
+  const shots = createProjectiles(scene);
+  let curDef = null; // 今持っている武器（catalog）
+  let curSight = null;
+  let aiming = false;
+  let tpsBeforeAim = false;
+  let rightDown = false;
+  const inv = createInventory({ onChange: (slot) => {
+    curDef = slot ? WEAPONS_BY_ID[slot.id] : null;
+    curSight = sightOf(slot?.id);
+    viewmodel.set(slot, curDef);
+    player.hero.setWeapon(slot);
+    if (!curSight) setAim(false);
+    touch?.setAim(!!curSight, aiming);
+  } });
   inv.setVisible(false);
   viewmodel.setVisible(false);
   let galleryBack = null;
   const gallery = createGallery({ onClose: () => galleryBack?.() });
   const randomWeapon = () => WEAPON_LIST[Math.floor(Math.random() * WEAPON_LIST.length)];
+
+  /** 覗き込みの切り替え。三人称のときは覗いている間だけ一人称にする */
+  function setAim(on) {
+    on = !!on && !!curSight;
+    if (on === aiming) return;
+    aiming = on;
+    if (on && !cam.fps) { tpsBeforeAim = true; toggleView(); }
+    if (!on && tpsBeforeAim) { tpsBeforeAim = false; toggleView(); }
+    touch?.setAim(!!curSight, aiming);
+  }
+
+  // ---- 狙い：画面中央の十字の先 ----
+  const ray = new THREE.Raycaster();
+  const center = new THREE.Vector2(0, 0);
+  const aimTo = new THREE.Vector3();
+  const from = new THREE.Vector3();
+  function aimPoint(range) {
+    ray.setFromCamera(center, camera);
+    ray.far = range;
+    const targets = [built.group];
+    for (const m of tiles.group.children) if (m.visible) targets.push(m);
+    const hit = ray.intersectObjects(targets, true)[0];
+    if (hit) return { point: aimTo.copy(hit.point), hit: true, dist: hit.distance };
+    return { point: aimTo.copy(ray.ray.origin).addScaledVector(ray.ray.direction, range), hit: false, dist: range };
+  }
+  /** 当たる瞬間：近接は斬撃の弧と火花、飛び道具は十字の先へ飛ばす */
+  function onFire(ev) {
+    const R = RARITIES[inv.current?.rarity ?? 0];
+    const color = R.glow ?? (curDef ? curDef.base.accent : 0xffffff);
+    const shot = shotOf(curDef);
+    if (shot.kind === 'slash' || shot.kind === 'punch') {
+      const reach = curDef ? curDef.range : 2.2;
+      if (cam.fps) shots.slash(camera, ev.step, ev.last, shot.kind === 'punch' ? 0xffe0b2 : color, shot.kind === 'punch' ? 1.0 : 1.3);
+      const a = aimPoint(reach + (cam.fps ? 0.3 : cam.tps.curDist));
+      if (a.hit && a.dist <= reach + (cam.fps ? 0.3 : cam.tps.curDist)) shots.burst(a.point, 0xffffff, 0.7, 8);
+      return;
+    }
+    const range = curDef.range;
+    const a = aimPoint(range + (cam.fps ? 0 : cam.tps.curDist));
+    if (cam.fps) from.copy(camera.localToWorld(viewmodel.muzzleLocal(from)));
+    else player.hero.handWorld(from);
+    shots.fire(shot, from, a.point, color);
+    sights.kick(curDef.type === 'heavy' ? 1.2 : 0.7);
+  }
   /** 試合ごとに落とし物を置き直す（家は 3 軒に 1 軒くらい、建物の上や塔のてっぺんは必ず。高いところほど良い物が出やすい） */
   function spawnLoot() {
     for (const it of [...loot.items]) loot.remove(it);
@@ -111,6 +172,7 @@ export async function startIsland() {
   window.addEventListener('keydown', (e) => {
     if (e.code === 'F3') { e.preventDefault(); debugOn = !debugOn; if (!debugOn) hud.debug(''); }
   });
+  renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault()); // 右クリックは覗き込み
   renderer.domElement.addEventListener('click', () => {
     if (state === 'play' && !touchMode && !hud.dialogOpen) input.lockPointer();
   });
@@ -172,7 +234,7 @@ export async function startIsland() {
     map.setMiniVisible(true);
     touch?.setVisible(true);
     player.hero.group.visible = !cam.fps;
-    hud.crosshair(cam.fps && !touchMode);
+    hud.crosshair(false);
     const g = Math.max(island.height(x, z), 0);
     player.place(x, z, g + DROP_HEIGHT);
     player.grounded = false;
@@ -219,7 +281,7 @@ export async function startIsland() {
   function toggleView() {
     cam.setMode(cam.fps ? 'tps' : 'fps');
     player.hero.group.visible = !cam.fps;
-    hud.crosshair(cam.fps && !touchMode);
+    hud.crosshair(false);
   }
   function toggleBoost() {
     player.boost = !player.boost;
@@ -314,9 +376,19 @@ export async function startIsland() {
     const act = player.gliding ? null : lootIt ? { kind: 'loot', item: lootIt, label: loot.label(lootIt) } : built.nearest(player.pos.x, player.pos.z);
     hud.setPrompt(act ? (act.kind === 'chest' && opened.has(act.chest) ? '空の宝箱' : act.label) : '');
     loot.update(dt, player.pos.x, player.pos.z);
+    if (state !== 'play' || player.gliding) setAim(false);
     viewmodel.setVisible(state === 'play' && cam.fps);
-    viewmodel.update(dt, player.walking ? 1 : 0, player.walkPhase);
-    if (intent.attack && !player.gliding) { if (viewmodel.attack()) player.hero.attack(); }
+    const vm = viewmodel.update(dt, { walk: player.walking ? 1 : 0, phase: player.walkPhase, lookDx: input.mouse.dx, lookDy: input.mouse.dy, aiming, scope: curSight === 'scope' });
+    if (cam.fps) {
+      const f = 75 + ((SIGHT_FOV[curSight] || 75) - 75) * vm.ads;
+      if (Math.abs(camera.fov - f) > 0.01) { camera.fov = f; camera.updateProjectionMatrix(); }
+    }
+    sights.update(dt, state === 'play' && !hud.dialogOpen, curSight, vm.ads);
+    if (intent.attack && !player.gliding && state === 'play') {
+      if (viewmodel.trigger(curDef ? 1 / curDef.rate : 0.25)) player.hero.attack();
+    }
+    if (vm.fire) onFire(vm);
+    shots.update(dt);
     if (intent.interact) interact(act);
     areaT -= dt;
     if (areaT <= 0) { areaT = 0.3; checkArea(); }
@@ -345,17 +417,25 @@ export async function startIsland() {
       intent.dash = intent.dash || s.dash;
       intent.jump = intent.jump || s.held.has('jump');
       intent.interact = intent.interact || s.pressed.has('interact');
-      cam.input(s.dx * q.touchSens, s.dy * q.touchSens, 0);
+      cam.input(s.dx * q.touchSens * (camera.fov / 75), s.dy * q.touchSens * (camera.fov / 75), 0);
     }
     intent.moveX = mx;
     intent.moveZ = mz;
-    if (input.mouse.locked) cam.input(input.mouse.dx * q.mouseSens, input.mouse.dy * q.mouseSens, input.mouse.wheel);
+    const zoomSens = camera.fov / 75; // 覗き込んでズームしているほど視点をゆっくり
+    if (input.mouse.locked) cam.input(input.mouse.dx * q.mouseSens * zoomSens, input.mouse.dy * q.mouseSens * zoomSens, input.mouse.wheel);
     else if (!cam.fps) cam.input(0, 0, input.mouse.wheel);
     if (input.wasPressed('KeyV')) toggleView();
     if (input.wasPressed('KeyG')) toggleBoost();
     if (input.wasPressed('KeyM')) openMap();
     // 武器：攻撃（左クリック／攻撃ボタン）・持ち替え（1〜3／一人称ならホイール）
     intent.attack = (input.mouse.locked && input.isDown('Mouse0')) || !!touch?.state.held.has('attack');
+    // 覗き込み：PC は右クリックを押している間、スマホは照準ボタンで切り替え
+    if (touch?.state.pressed.has('aim')) setAim(!aiming);
+    else if (!touch) {
+      const rd = input.mouse.locked && input.isDown('Mouse2');
+      if (rd !== rightDown) { rightDown = rd; setAim(rd); } // 押した・離した瞬間だけ切り替え
+    }
+    if (aiming) intent.dash = false;
     for (let i = 0; i < 3; i++) if (input.wasPressed(`Digit${i + 1}`)) inv.select(i);
     if (cam.fps && input.mouse.locked && input.mouse.wheel) inv.next(Math.sign(input.mouse.wheel));
   }
@@ -385,7 +465,7 @@ export async function startIsland() {
   }
 
   if (new URLSearchParams(location.search).has('debug')) {
-    window.__rpg = { island, built, player, cam, drop, exitTunnel, toggleView, interact, platforms, loot, inv, viewmodel, get state() { return state; }, stats: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, tiles: { ...tiles.stats }, props: { ...props.stats }, fps }) };
+    window.__rpg = { island, built, player, cam, drop, exitTunnel, toggleView, interact, platforms, loot, inv, viewmodel, shots, setAim, aimPoint, get state() { return state; }, stats: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, tiles: { ...tiles.stats }, props: { ...props.stats }, fps }) };
   }
   showTitle();
 }

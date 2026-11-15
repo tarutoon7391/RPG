@@ -19,6 +19,7 @@ export function createTouch({ onPause, onView, onMap, onBoost }) {
     <button type="button" class="t-btn t-jump" data-k="jump">ジャンプ</button>
     <button type="button" class="t-btn t-act" data-k="interact">調べる</button>
     <button type="button" class="t-btn t-atk" data-k="attack">攻撃</button>
+    <button type="button" class="t-btn t-aim" data-k="aim"><svg viewBox="-12 -12 24 24"><circle r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M0 -11 V-4 M0 4 V11 M-11 0 H-4 M4 0 H11" stroke="currentColor" stroke-width="2"/></svg></button>
     <div class="t-top">
       <button type="button" data-a="pause">⏸</button>
       <button type="button" data-a="map">🗺</button>
@@ -110,6 +111,12 @@ export function createTouch({ onPause, onView, onMap, onBoost }) {
   return {
     state,
     setVisible(v) { root.style.display = v ? 'block' : 'none'; },
+    /** 照準ボタン（銃・弓を持っているときだけ出す。on で押された見た目） */
+    setAim(show, on) {
+      const b = root.querySelector('.t-aim');
+      b.style.display = show ? 'block' : 'none';
+      b.classList.toggle('on', !!on);
+    },
     /** フレームの最後に */
     endFrame() {
       state.dx = 0;
