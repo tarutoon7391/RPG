@@ -13,12 +13,12 @@ export const TYPES = {
   axe: { name: '斧', melee: true, dmg: 34, rate: 1.0, range: 3.0 },
   blunt: { name: '鈍器', melee: true, dmg: 30, rate: 1.1, range: 2.8 },
   fist: { name: '拳', melee: true, dmg: 12, rate: 3.0, range: 2.0 },
-  staff: { name: '杖（魔法）', melee: false, dmg: 20, rate: 1.4, range: 35 },
-  bow: { name: '弓', melee: false, dmg: 28, rate: 1.0, range: 70 },
-  gun: { name: '銃', melee: false, dmg: 16, rate: 3.0, range: 55 },
-  heavy: { name: '重火器', melee: false, dmg: 45, rate: 0.6, range: 45 },
-  throw: { name: '投げ物', melee: false, dmg: 26, rate: 1.0, range: 25 },
-  odd: { name: '変わり種', melee: false, dmg: 18, rate: 1.5, range: 18 },
+  staff: { name: '杖（魔法）', melee: false, dmg: 20, rate: 1.4, range: 200 },
+  bow: { name: '弓', melee: false, dmg: 28, rate: 1.0, range: 320 },
+  gun: { name: '銃', melee: false, dmg: 16, rate: 3.0, range: 260 },
+  heavy: { name: '重火器', melee: false, dmg: 45, rate: 0.6, range: 260 },
+  throw: { name: '投げ物', melee: false, dmg: 26, rate: 1.0, range: 120 },
+  odd: { name: '変わり種', melee: false, dmg: 18, rate: 1.5, range: 100 },
 };
 
 /** スキン（レア度）。コモンは 3DRPG の元の色。上のレア度ほど金属・飾り・光る部分の色が変わる */
@@ -130,10 +130,13 @@ const LIST = [
   ['sacrifice', '儀式の短剣', 'dagger', 0xef9a9a, 0xef9a9a, 0x7f0000],
 ];
 
+/** 射程を個別に変える武器（m）：スナイパーは島の端まで、火炎放射は短く */
+const RANGE_OF = { sniper: 1100, hunter: 400, archer: 380, laser: 400, flamer: 30, rocketeer: 350, fortress: 400 };
+
 export const WEAPON_LIST = LIST.map(([id, name, type, metal, accent, armor], i) => {
   const T = TYPES[type];
   const v = hash2(i, 7, 1234); // 武器ごとの少しの差（±12%）
-  return { id, no: i + 1, name, type, typeName: T.name, melee: T.melee, base: { metal, accent, armor }, dmg: Math.round(T.dmg * (0.88 + v * 0.24)), rate: T.rate, range: T.range };
+  return { id, no: i + 1, name, type, typeName: T.name, melee: T.melee, base: { metal, accent, armor }, dmg: Math.round(T.dmg * (0.88 + v * 0.24)), rate: T.rate, range: RANGE_OF[id] ?? T.range };
 });
 export const WEAPONS_BY_ID = Object.fromEntries(WEAPON_LIST.map((w) => [w.id, w]));
 

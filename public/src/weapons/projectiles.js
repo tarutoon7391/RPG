@@ -6,21 +6,22 @@ import * as THREE from 'three';
 export function shotOf(def) {
   if (!def) return { kind: 'punch' };
   const id = def.id;
-  if (id === 'rocketeer') return { kind: 'rocket', speed: 70 };
-  if (id === 'flamer') return { kind: 'flame', speed: 26 };
-  if (id === 'fortress') return { kind: 'shell', speed: 90 };
-  if (id === 'stickybomber') return { kind: 'goo', speed: 38, gravity: 14 };
-  if (id === 'laser') return { kind: 'beam', speed: 400 };
-  if (id === 'bomber' || id === 'alchemist') return { kind: 'bomb', speed: 26, gravity: 16 };
-  if (def.type === 'gun' || def.type === 'heavy') return { kind: 'bullet', speed: 240 };
-  if (def.type === 'bow') return { kind: 'arrow', speed: 85, gravity: 3 };
-  if (def.type === 'throw') return { kind: 'spin', speed: 40, gravity: 6 };
-  if (def.type === 'staff' || def.type === 'odd') return { kind: 'orb', speed: 48 };
+  if (id === 'rocketeer') return { kind: 'rocket', speed: 180 };
+  if (id === 'flamer') return { kind: 'flame', speed: 45 };
+  if (id === 'fortress') return { kind: 'shell', speed: 260 };
+  if (id === 'stickybomber') return { kind: 'goo', speed: 110, gravity: 10 };
+  if (id === 'laser') return { kind: 'beam', speed: 2000 };
+  if (id === 'bomber' || id === 'alchemist') return { kind: 'bomb', speed: 80, gravity: 12 };
+  if (id === 'sniper') return { kind: 'bullet', speed: 1200 };
+  if (def.type === 'gun' || def.type === 'heavy') return { kind: 'bullet', speed: 700 };
+  if (def.type === 'bow') return { kind: 'arrow', speed: 240, gravity: 3 };
+  if (def.type === 'throw') return { kind: 'spin', speed: 110, gravity: 5 };
+  if (def.type === 'staff' || def.type === 'odd') return { kind: 'orb', speed: 160 };
   return { kind: 'slash' };
 }
 
 const GEO = {
-  tracer: new THREE.BoxGeometry(0.04, 0.04, 1.6),
+  tracer: new THREE.BoxGeometry(0.04, 0.04, 4.5), // 速いので長め
   arrow: (() => {
     const s = new THREE.CylinderGeometry(0.015, 0.015, 0.8, 5).rotateX(Math.PI / 2);
     return s;
@@ -162,10 +163,10 @@ export function createProjectiles(scene) {
         o.add(s);
         group.add(o);
         const d2 = dir.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15)).normalize();
-        const len = Math.min(dist, 12);
+        const len = Math.min(dist, 30);
         fx.push({ obj: o, t: 0, life: len / speed, update(dt, kk) { o.position.addScaledVector(d2, speed * dt); s.scale.setScalar(0.5 + kk * 1.6); s.material.opacity = 0.8 * (1 - kk); } });
       }
-      if (dist <= 12) { burst(to, 0xff6d00, 0.7, 6); onArrive?.(); }
+      if (dist <= 30) { burst(to, 0xff6d00, 0.7, 6); onArrive?.(); }
       return;
     }
     group.add(obj);
