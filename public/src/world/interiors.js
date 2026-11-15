@@ -74,6 +74,8 @@ export function bigBuilding(k, o) {
   const parapet = o.roof === 'flat' ? 1.3 : 0;
   const [dw, dh] = o.door || [3, 3.2];
   const wallH = H + parapet;
+  // 屋上がある建物は、屋上でジャンプすれば外壁（胸壁）を越えて飛び降りられる
+  const wt = o.roof === 'flat' ? H + 0.95 : undefined;
   // 壁（前は扉の穴）
   k.box(w, wallH, T, color, x, 0, z - d / 2 + T / 2);
   k.box(T, wallH, d, color, x - w / 2 + T / 2, 0, z);
@@ -82,12 +84,12 @@ export function bigBuilding(k, o) {
   k.box(side, wallH, T, color, x - dw / 2 - side / 2, 0, z + d / 2 - T / 2);
   k.box(side, wallH, T, color, x + dw / 2 + side / 2, 0, z + d / 2 - T / 2);
   k.box(dw, wallH - dh, T, color, x, dh, z + d / 2 - T / 2);
-  k.rect(x - w / 2, x + w / 2, z - d / 2, z - d / 2 + T);
-  k.rect(x - w / 2, x - w / 2 + T, z - d / 2, z + d / 2);
-  k.rect(x + w / 2 - T, x + w / 2, z - d / 2, z + d / 2);
-  k.rect(x - w / 2, x - dw / 2, z + d / 2 - T, z + d / 2);
-  k.rect(x + dw / 2, x + w / 2, z + d / 2 - T, z + d / 2);
-  k.rect(x - dw / 2, x + dw / 2, z + d / 2 - T, z + d / 2, undefined, dh); // 扉の上（2階以上では壁）
+  k.rect(x - w / 2, x + w / 2, z - d / 2, z - d / 2 + T, wt);
+  k.rect(x - w / 2, x - w / 2 + T, z - d / 2, z + d / 2, wt);
+  k.rect(x + w / 2 - T, x + w / 2, z - d / 2, z + d / 2, wt);
+  k.rect(x - w / 2, x - dw / 2, z + d / 2 - T, z + d / 2, wt);
+  k.rect(x + dw / 2, x + w / 2, z + d / 2 - T, z + d / 2, wt);
+  k.rect(x - dw / 2, x + dw / 2, z + d / 2 - T, z + d / 2, wt, dh); // 扉の上（2階以上では壁）
   k.box(w - 0.2, 0.12, d - 0.2, 0x6e6458, x, 0, z);
   // 窓（光る）
   for (let f = 0; f < floors; f++) {
@@ -248,7 +250,8 @@ export function spiralTower(k, o) {
     const pz = z + Math.cos(a) * (B - 0.15);
     const low = i % 3 === 1;
     k.box(1.05, low ? 0.55 : 1.15, 0.3, color, px, H, pz, a);
-    k.cols.push({ x: px, z: pz, r: 0.45, bot: H - 0.3, top: H + 3 });
+    // ジャンプすれば越えられる（低いところは軽く、高いところはしっかり跳ぶ）
+    k.cols.push({ x: px, z: pz, r: 0.45, bot: H - 0.3, top: H + (low ? 0.35 : 0.95) });
   }
   // 屋根（柱で持ち上げる）
   for (let i = 0; i < 4; i++) {
