@@ -36,26 +36,32 @@ export function plank(k, cx, cz, hw, hl, y0, y1, color, { thick = 0.3, ry = 0, w
  * 空洞の家（1階建て）。扉は +z 側の真ん中
  */
 export function hollowHouse(k, x, z, W, D, h, wallColor) {
-  const dw = 1.6; // 扉の幅
-  const dh = 2.4;
+  const dw = Math.min(2.4, W - 2.2); // 入口の穴の幅（扉は付けない）
+  const dh = Math.min(2.7, h - 0.4);
   // 後ろ・左右
   k.box(W, h, T, wallColor, x, 0, z - D / 2 + T / 2);
   k.box(T, h, D, wallColor, x - W / 2 + T / 2, 0, z);
   k.box(T, h, D, wallColor, x + W / 2 - T / 2, 0, z);
-  // 前（扉の穴）
+  // 前（入口の穴）
   const side = (W - dw) / 2;
   k.box(side, h, T, wallColor, x - dw / 2 - side / 2, 0, z + D / 2 - T / 2);
   k.box(side, h, T, wallColor, x + dw / 2 + side / 2, 0, z + D / 2 - T / 2);
   k.box(dw, h - dh, T, wallColor, x, dh, z + D / 2 - T / 2);
-  // 床と天井
-  k.box(W - 0.1, 0.12, D - 0.1, 0x7a6248, x, 0, z);
-  k.box(W, 0.2, D, 0x6b5640, x, h - 0.2, z);
+  // 入口の石の縁（穴だと分かるように）
+  const rim = 0x6b6258;
+  k.box(0.25, dh, T + 0.2, rim, x - dw / 2 - 0.1, 0, z + D / 2 - T / 2);
+  k.box(0.25, dh, T + 0.2, rim, x + dw / 2 + 0.1, 0, z + D / 2 - T / 2);
+  k.box(dw + 0.45, 0.25, T + 0.2, rim, x, dh, z + D / 2 - T / 2);
+  // 床（明るめの板張り）と天井、天井のランプ
+  k.box(W - 0.1, 0.1, D - 0.1, 0xb08a5e, x, 0, z);
+  k.box(W, 0.2, D, 0x8a7158, x, h - 0.2, z);
+  k.box(0.6, 0.25, 0.6, 0xffe6a8, x, h - 0.45, z, 0, true);
   // 当たり判定（壁ごと）
   k.rect(x - W / 2, x + W / 2, z - D / 2, z - D / 2 + T);
   k.rect(x - W / 2, x - W / 2 + T, z - D / 2, z + D / 2);
   k.rect(x + W / 2 - T, x + W / 2, z - D / 2, z + D / 2);
-  k.rect(x - W / 2, x - dw / 2, z + D / 2 - T, z + D / 2);
-  k.rect(x + dw / 2, x + W / 2, z + D / 2 - T, z + D / 2);
+  k.rect(x - W / 2, x - dw / 2 - 0.2, z + D / 2 - T, z + D / 2);
+  k.rect(x + dw / 2 + 0.2, x + W / 2, z + D / 2 - T, z + D / 2);
 }
 
 /**
@@ -113,12 +119,13 @@ export function bigBuilding(k, o) {
       const t = (s + 0.5) / steps;
       k.box(sw, 0.12, L / steps, 0x8c7c68, sx, y0 + t * floorH, zStart - t * L);
     }
-    // 階段の下には入れない（高いところだけふさぐ）
-    const zBlock = zStart - L * (1.1 / floorH);
+    // 階段の下には入れない（高いところだけふさぐ。上っている人の体が引っかからないよう余裕を持たせる）
+    const zBlock = zStart - L * (1.9 / floorH);
     k.rect(sx - sw / 2, sx + sw / 2, zEnd, zBlock, y0 + 1.0, y0);
     // 手すり
     k.box(0.12, 1, L, 0x5a4a3a, left ? sx + sw / 2 : sx - sw / 2, y0 + floorH / 2, (zStart + zEnd) / 2);
-    holes.push({ minX: sx - sw / 2 - 0.1, maxX: sx + sw / 2 + 0.1, minZ: zEnd - 1.3, maxZ: zStart });
+    // 上の階の床の穴：頭がぶつかる下半分だけ。上り切った先（奥の踊り場）は床がある
+    holes.push({ minX: sx - sw / 2 - 0.1, maxX: sx + sw / 2 + 0.1, minZ: zEnd + L * (1.2 / floorH), maxZ: zStart + 0.2 });
   }
   // 上の階の床（穴をあける）＋屋上
   for (let f = 1; f <= floors; f++) {
@@ -224,11 +231,14 @@ export function spiralTower(k, o) {
     const am = a0 + segA / 2;
     const inHole = i * segA > (Math.PI * 4) / 3 - 1e-6; // 最後の 1/3 周
     const yaw = Math.atan2(Math.cos(am), -Math.sin(am));
-    const r0 = inHole ? R - T : 0.01;
-    const rmF = (r0 + B) / 2;
-    const hwF = (B - r0) / 2;
-    const hlF = (rmF * segA) / 2 * 1.1;
-    plank(k, x + Math.sin(am) * rmF, z + Math.cos(am) * rmF, hwF, hlF, H, H, 0x8a8478, { thick: 0.35, ry: yaw });
+    // 内側（塔の中）と外側（バルコニー）に分けて、穴の方へはみ出さないようにする
+    const pieces = inHole ? [[R - T, B]] : [[rIn, R - T], [R - T, B]];
+    for (const [r0, r1] of pieces) {
+      const rmF = (r0 + r1) / 2;
+      const hwF = (r1 - r0) / 2 + 0.02;
+      const hlF = (rmF * segA) / 2 * 1.04;
+      plank(k, x + Math.sin(am) * rmF, z + Math.cos(am) * rmF, hwF, hlF, H, H, 0x8a8478, { thick: 0.35, ry: yaw });
+    }
   }
   // バルコニーの手すり（ところどころ切れ目＝狙う窓）
   const rn = Math.ceil((2 * Math.PI * B) / 1.2);
