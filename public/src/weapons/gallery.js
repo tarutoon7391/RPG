@@ -1,6 +1,6 @@
 // 武器図鑑：96種の武器を種類ごとに並べ、選んだ武器をスキン（レア度）を切り替えながら回して見られる
 import * as THREE from 'three';
-import { WEAPON_LIST, TYPES, RARITIES, weaponDamage } from './catalog.js';
+import { WEAPON_LIST, TYPES, RARITIES, weaponDamage, ACTIVE_TYPES } from './catalog.js';
 import { buildSkinned, disposeBuilt } from './view.js';
 import { esc } from '../util.js';
 
@@ -76,7 +76,7 @@ export function createGallery({ onClose }) {
   }
 
   function renderTabs() {
-    const tabs = [['all', 'すべて'], ...Object.entries(TYPES).map(([k, v]) => [k, v.name])];
+    const tabs = [['all', 'すべて'], ...ACTIVE_TYPES.map((k) => [k, TYPES[k].name])];
     $('.gl-tabs').innerHTML = tabs.map(([k, n]) => `<button type="button" data-t="${k}" class="${k === type ? 'on' : ''}">${n}</button>`).join('');
     for (const b of el.querySelectorAll('.gl-tabs button')) b.onclick = () => { type = b.dataset.t; renderTabs(); renderList(); };
   }

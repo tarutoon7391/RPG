@@ -133,12 +133,16 @@ const LIST = [
 /** 射程を個別に変える武器（m）：スナイパーは島の端まで、火炎放射は短く */
 const RANGE_OF = { sniper: 1100, hunter: 400, archer: 380, laser: 400, flamer: 30, rocketeer: 350, fortress: 400 };
 
-export const WEAPON_LIST = LIST.map(([id, name, type, metal, accent, armor], i) => {
+export const ALL_WEAPONS = LIST.map(([id, name, type, metal, accent, armor], i) => {
   const T = TYPES[type];
   const v = hash2(i, 7, 1234); // 武器ごとの少しの差（±12%）
   return { id, no: i + 1, name, type, typeName: T.name, melee: T.melee, base: { metal, accent, armor }, dmg: Math.round(T.dmg * (0.88 + v * 0.24)), rate: T.rate, range: RANGE_OF[id] ?? T.range };
 });
-export const WEAPONS_BY_ID = Object.fromEntries(WEAPON_LIST.map((w) => [w.id, w]));
+export const WEAPONS_BY_ID = Object.fromEntries(ALL_WEAPONS.map((w) => [w.id, w]));
+
+/** ゲームで使う種類（島に落ちる・図鑑に出る）。ほかの種類はデータとして残してある */
+export const ACTIVE_TYPES = ['bow', 'gun', 'heavy'];
+export const WEAPON_LIST = ALL_WEAPONS.filter((w) => ACTIVE_TYPES.includes(w.type));
 
 const mixHex = (a, b, t) => {
   const r = ((a >> 16) & 255) * (1 - t) + ((b >> 16) & 255) * t;
