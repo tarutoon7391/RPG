@@ -1,5 +1,5 @@
 // スマホ（横持ち）のタッチ操作
-// 左：仮想スティック（触ったところが中心。いっぱいに倒すとダッシュ）／右：ドラッグで視点
+// 左：仮想スティック（触ったところが中心。いっぱいに倒すとダッシュ）／右：ドラッグで視点（攻撃ボタンを押したままでも視点が動く）
 // ボタン：ジャンプ・調べる・爆速（テスト）・マップ・視点・ポーズ
 export function isTouchDevice() {
   if (new URLSearchParams(location.search).has('touch')) return true;
@@ -86,15 +86,42 @@ export function createTouch({ onPause, onView, onMap, onBoost }) {
   root.addEventListener('pointercancel', end);
 
   for (const b of root.querySelectorAll('.t-btn')) {
+    // 攻撃ボタンは押したまま指を動かすと視点も動く（撃ちながらエイム）。指がボタンの外に出ても離すまで攻撃し続ける
+    const drag = b.dataset.k === 'attack';
+    let bx = 0;
+    let by = 0;
+    let bid = null;
     b.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       state.pressed.add(b.dataset.k);
       state.held.add(b.dataset.k);
+      if (drag) {
+        bid = e.pointerId;
+        bx = e.clientX;
+        by = e.clientY;
+        b.setPointerCapture?.(e.pointerId);
+        b.classList.add('on');
+      }
     });
-    const up = () => state.held.delete(b.dataset.k);
+    if (drag) {
+      b.addEventListener('pointermove', (e) => {
+        if (e.pointerId !== bid) return;
+        e.stopPropagation();
+        state.dx += (e.clientX - bx) * LOOK_SENS;
+        state.dy += (e.clientY - by) * LOOK_SENS;
+        bx = e.clientX;
+        by = e.clientY;
+      });
+    }
+    const up = (e) => {
+      if (drag && e.pointerId !== bid) return;
+      bid = null;
+      b.classList.remove('on');
+      state.held.delete(b.dataset.k);
+    };
     b.addEventListener('pointerup', up);
     b.addEventListener('pointercancel', up);
-    b.addEventListener('pointerleave', up);
+    if (!drag) b.addEventListener('pointerleave', up);
   }
   for (const b of root.querySelectorAll('[data-a]')) {
     b.addEventListener('click', (e) => {

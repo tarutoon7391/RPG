@@ -179,3 +179,4 @@ body.touch-on .t-aim { right: 252px; bottom: 140px; }
 .sg-hit i:nth-child(3) { transform: rotate(225deg) translateY(-11px); }
 .sg-hit i:nth-child(4) { transform: rotate(315deg) translateY(-11px); }
 .sg-hit.crit i { background: #ff5252; }
+.t-atk.on { background: #ff7043cc; border-color: #fff; transform: scale(0.95); }
