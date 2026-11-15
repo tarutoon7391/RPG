@@ -201,21 +201,15 @@ export function spiralTower(k, o) {
   k.cyl(R - T, R - T, 0.15, 0x6e6458, x, 0, z, 16);
   k.cyl(rIn, rIn, H, 0x8a8478, x, 0, z, 10);
   k.circle(x, z, rIn + 0.1);
-  // 外壁の当たり判定（扉は空ける）。てっぺんより上にいれば通れる
-  const n = Math.ceil((2 * Math.PI * R) / 1.0);
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2;
-    const da = Math.atan2(Math.sin(a - door), Math.cos(a - door));
-    if (Math.abs(da) < gap / 2 + 0.05) continue;
-    k.cols.push({ x: x + Math.sin(a) * (R - T / 2), z: z + Math.cos(a) * (R - T / 2), r: T / 2 + 0.15, top: H - 0.6 });
-  }
+  // 外壁の当たり判定：筒（ring）で一周ふさぐ。扉の穴は地面の高さだけ。てっぺんより上にいれば通れる
+  k.cols.push({ ring: true, x, z, rIn: R - T, rOut: R, door, gap: gap / 2, doorTop: 2.6, top: H - 0.6 });
   // 螺旋階段：扉の右から上り始める
   const start = door + gap / 2 + segA * 0.6;
   const total = Math.ceil((H / rise) * segs);
   const dy = H / total;
   const rm = (rIn + rOut) / 2;
   const hw = (rOut - rIn) / 2;
-  const hl = (rm * segA) / 2 * 1.08;
+  const hl = rOut * Math.tan(segA / 2) * 1.04; // 外周でもすき間ができない長さ
   let endA = start;
   for (let i = 0; i < total; i++) {
     const am = start + (i + 0.5) * segA;
@@ -238,7 +232,7 @@ export function spiralTower(k, o) {
     for (const [r0, r1] of pieces) {
       const rmF = (r0 + r1) / 2;
       const hwF = (r1 - r0) / 2 + 0.02;
-      const hlF = (rmF * segA) / 2 * 1.04;
+      const hlF = r1 * Math.tan(segA / 2) * 1.04; // 外周（手すりぎわ）でもすき間ができない長さ
       plank(k, x + Math.sin(am) * rmF, z + Math.cos(am) * rmF, hwF, hlF, H, H, 0x8a8478, { thick: 0.35, ry: yaw });
     }
   }
@@ -250,9 +244,9 @@ export function spiralTower(k, o) {
     const pz = z + Math.cos(a) * (B - 0.15);
     const low = i % 3 === 1;
     k.box(1.05, low ? 0.55 : 1.15, 0.3, color, px, H, pz, a);
-    // ジャンプすれば越えられる（低いところは軽く、高いところはしっかり跳ぶ）
-    k.cols.push({ x: px, z: pz, r: 0.45, bot: H - 0.3, top: H + (low ? 0.35 : 0.95) });
   }
+  // 手すりの当たり判定は筒（すき間なし）。ジャンプすれば越えられる
+  k.cols.push({ ring: true, x, z, rIn: B - 0.35, rOut: B + 0.05, bot: H - 0.3, top: H + 0.6 });
   // 屋根（柱で持ち上げる）
   for (let i = 0; i < 4; i++) {
     const a = door + Math.PI / 4 + (i * Math.PI) / 2;

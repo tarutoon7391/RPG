@@ -7,7 +7,14 @@ export function createColliders() {
   const key = (i, j) => i * 73856093 + j;
 
   function bounds(s) {
+    if (s.ring) return [s.x - s.rOut, s.x + s.rOut, s.z - s.rOut, s.z + s.rOut];
     return s.r !== undefined ? [s.x - s.r, s.x + s.r, s.z - s.r, s.z + s.r] : [s.minX, s.maxX, s.minZ, s.maxZ];
+  }
+  /** 筒の壁（塔）：扉の穴の中にいるか */
+  function inDoor(s, x, z, y) {
+    if (s.door === undefined || y >= s.doorTop) return false;
+    const a = Math.atan2(x - s.x, z - s.z);
+    return Math.abs(Math.atan2(Math.sin(a - s.door), Math.cos(a - s.door))) < s.gap;
   }
   function each(s, fn) {
     const [a, b, c, d] = bounds(s);
@@ -28,9 +35,10 @@ export function createColliders() {
 
   /**
    * 位置 (x,z) 半径 r の円を押し出す。y が top より上、または体（y〜y+1.8）が bot より下なら当たらない
+   * px, pz は動く前の位置（筒の壁で内側・外側を決めるのに使う）
    * @returns {{x, z}} 補正後
    */
-  function resolve(x, z, r, y = 0) {
+  function resolve(x, z, r, y = 0, px = x, pz = z) {
     for (let iter = 0; iter < 2; iter++) {
       const set = grid.get(key(Math.floor(x / G), Math.floor(z / G)));
       const near = [];
@@ -42,6 +50,19 @@ export function createColliders() {
       for (const s of near) {
         if (s.top !== undefined && y > s.top) continue;
         if (s.bot !== undefined && y + 1.8 <= s.bot) continue;
+        if (s.ring) {
+          // 筒の壁：内側の人は内側に、外側の人は外側に留める（鎖状の円と違ってすき間が無い）
+          const dx = x - s.x;
+          const dz = z - s.z;
+          const d = Math.hypot(dx, dz);
+          if (d < s.rIn - r || d > s.rOut + r || d < 1e-6 || inDoor(s, x, z, y)) continue;
+          // どっち側にいたかは「動く前の位置」で決める（速く動いても壁を抜けない）
+          const inside = Math.hypot(px - s.x, pz - s.z) < (s.rIn + s.rOut) / 2;
+          const m = inside ? s.rIn - r : s.rOut + r;
+          x = s.x + (dx / d) * m;
+          z = s.z + (dz / d) * m;
+          continue;
+        }
         if (s.r !== undefined) {
           const dx = x - s.x;
           const dz = z - s.z;
@@ -82,6 +103,11 @@ export function createColliders() {
     for (const s of set) {
       if (s.top !== undefined && y > s.top) continue;
       if (s.bot !== undefined && y + 1.8 <= s.bot) continue;
+      if (s.ring) {
+        const d = Math.hypot(x - s.x, z - s.z);
+        if (d > s.rIn && d < s.rOut && !inDoor(s, x, z, y)) return true;
+        continue;
+      }
       if (s.r !== undefined ? Math.hypot(x - s.x, z - s.z) < s.r : x > s.minX && x < s.maxX && z > s.minZ && z < s.maxZ) return true;
     }
     return false;

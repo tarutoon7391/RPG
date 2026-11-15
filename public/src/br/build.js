@@ -75,6 +75,7 @@ export function buildIsland(scene, island, L, colliders, platforms) {
     const cols = k.cols.map((c) => {
       const top = c.top !== undefined ? p.h + c.top : undefined;
       const bot = c.bot !== undefined ? p.h + c.bot : undefined;
+      if (c.ring) { const w = toWorld(p, c.x, c.z); return { ...c, x: w.x, z: w.z, door: c.door + (p.yaw || 0), doorTop: p.h + c.doorTop, top, bot }; }
       if (c.r !== undefined) { const w = toWorld(p, c.x, c.z); return { x: w.x, z: w.z, r: c.r, top, bot }; }
       if (!p.yaw) return { minX: p.x + c.minX, maxX: p.x + c.maxX, minZ: p.z + c.minZ, maxZ: p.z + c.maxZ, top, bot };
       const w = toWorld(p, (c.minX + c.maxX) / 2, (c.minZ + c.maxZ) / 2);
@@ -187,10 +188,12 @@ export function buildIsland(scene, island, L, colliders, platforms) {
     // 倉庫（2階建て。中の階段で 2 階へ）
     for (const [x, z, w, d] of [[-30, -18, 16, 12], [-8, -26, 13, 11], [26, -20, 18, 12]]) {
       bigBuilding(k, { x, z, w, d, floorH: 4, floors: 2, color: 0x8a6d4f, roof: 'none', door: [3.2, 3.2] });
-      const roof = new THREE.CylinderGeometry(d * 0.62, d * 0.62, w + 0.6, 3, 1);
+      // 三角屋根（とがった方を上に）。底辺の幅が奥行きと同じになるように
+      const rr = d / Math.sqrt(3);
+      const roof = new THREE.CylinderGeometry(rr, rr, w + 0.6, 3, 1);
       roof.rotateZ(Math.PI / 2);
-      roof.rotateX(Math.PI / 6 + Math.PI);
-      k.add(roof, 0x5a4636, x, 8 + d * 0.15, z);
+      roof.rotateX(-Math.PI / 2);
+      k.add(roof, 0x5a4636, x, 8 + rr / 2, z);
     }
     // 木箱・樽
     for (let i = 0; i < 16; i++) {

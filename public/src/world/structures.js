@@ -287,6 +287,7 @@ export function createStructures(scene, world, colliders) {
     const cols = k.cols.map((c) => {
       const top = c.top !== undefined ? p.h + c.top : undefined;
       const bot = c.bot !== undefined ? p.h + c.bot : undefined;
+      if (c.ring) { const w = toWorld(p, c.x, c.z); return { ...c, x: w.x, z: w.z, door: c.door + (p.yaw || 0), doorTop: p.h + c.doorTop, top, bot }; }
       if (c.r !== undefined) { const w = toWorld(p, c.x, c.z); return { x: w.x, z: w.z, r: c.r, top, bot }; }
       if (!p.yaw) return { minX: p.x + c.minX, maxX: p.x + c.maxX, minZ: p.z + c.minZ, maxZ: p.z + c.maxZ, top, bot };
       const w = toWorld(p, (c.minX + c.maxX) / 2, (c.minZ + c.maxZ) / 2);

@@ -70,9 +70,13 @@ export async function startIsland() {
     water: true,
     ground,
     move(pos, dx, dz) {
-      const r = colliders.resolve(pos.x + dx, pos.z + dz, MOVE.radius, pos.y);
-      pos.x = r.x;
-      pos.z = r.z;
+      // 速いとき（ダッシュ・爆速）に壁を抜けないよう、0.4m ずつ刻んで動かす
+      const n = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.4));
+      for (let i = 0; i < n; i++) {
+        const r = colliders.resolve(pos.x + dx / n, pos.z + dz / n, MOVE.radius, pos.y, pos.x, pos.z);
+        pos.x = r.x;
+        pos.z = r.z;
+      }
     },
   };
   const camEnv = { ground: (x, z) => island.height(x, z, 3), blocked: (x, z, y) => colliders.hits(x, z, y), ceil: Infinity };
