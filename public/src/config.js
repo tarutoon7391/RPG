@@ -27,8 +27,8 @@ export const TERRAIN = {
 
 /** 動き */
 export const MOVE = {
-  walk: 6, // m/s
-  dash: 12,
+  walk: MODE === 'br' ? 4.5 : 6, // m/s（島はゆっくりめ）
+  dash: MODE === 'br' ? 7.5 : 12,
   boost: 150, // テスト用の爆速（G で切り替え）
   jump: 8.5,
   gravity: 24,
