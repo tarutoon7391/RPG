@@ -261,7 +261,7 @@ export function createViewModel(app) {
         const kick = Math.sin(w * Math.PI) * (1 - w * 0.4);
         Rp.z += kick * 0.07 * (1 - ads * 0.5);
         Rp.rx += kick * 0.18 * (1 - ads * 0.6);
-        if (!fired) { fired = true; fire = true; muzzleT = 0.05; }
+        if (!fired) { fired = true; fire = true; } // 銃口の光は出さない（スコープを覗くと見えなくなるため）
         if (actT >= d) action = null;
       } else if (action === 'cast') {
         // 杖・変わり種：前へ突き出して放つ

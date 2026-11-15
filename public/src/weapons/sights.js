@@ -42,17 +42,26 @@ export function createSights() {
       <circle cx="0" cy="2.5" r="2" fill="#7CFC00"/><circle cx="-9" cy="20" r="1.6" fill="#7CFC00"/><circle cx="9" cy="20" r="1.6" fill="#7CFC00"/>
     </svg>
     <svg class="sg-bow" viewBox="-40 -40 80 80"><path d="M-10 6 L0 -4 L10 6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle r="1.5" fill="#fff"/><circle r="14" fill="none" stroke="#ffffff66" stroke-width="1" stroke-dasharray="3 4"/></svg>
-    <div class="sg-label"></div>`;
+    <div class="sg-label"></div>
+    <div class="sg-hit"><i></i><i></i><i></i><i></i></div>`;
   document.body.appendChild(el);
   const cross = el.querySelector('.sg-cross');
   const parts = { scope: el.querySelector('.sg-scope'), holo: el.querySelector('.sg-holo'), iron: el.querySelector('.sg-iron'), bow: el.querySelector('.sg-bow') };
   const label = el.querySelector('.sg-label');
+  const hitEl = el.querySelector('.sg-hit');
+  let hitT = 0;
   let spread = 0;
   let lastKey = '';
 
   return {
     /** 撃ったときに十字を一瞬広げる */
     kick(v = 1) { spread = Math.min(1.5, spread + v); },
+    /** 当たったときの × 印（クリティカルは赤） */
+    hit(crit) {
+      hitT = 0.22;
+      hitEl.classList.toggle('crit', !!crit);
+      hitEl.style.display = 'block';
+    },
     /**
      * @param show 照準を出すか（遊んでいる間）
      * @param sight 照準器の種類（null は無し）
@@ -60,6 +69,7 @@ export function createSights() {
      */
     update(dt, show, sight, ads) {
       spread = Math.max(0, spread - dt * 5);
+      if (hitT > 0) { hitT -= dt; if (hitT <= 0) hitEl.style.display = 'none'; else hitEl.style.opacity = String(Math.min(1, hitT / 0.12)); }
       const on = ads > 0.55 ? sight : null;
       const key = `${show}|${on}|${sight}`;
       if (key !== lastKey) {

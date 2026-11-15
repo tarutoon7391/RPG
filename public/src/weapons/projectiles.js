@@ -116,7 +116,7 @@ export function createProjectiles(scene) {
    * @param from 出る位置（ワールド） to 狙う位置（ワールド）
    * @param color 光る色（スキン）
    */
-  function fire(shot, from, to, color = 0xffd54f) {
+  function fire(shot, from, to, color = 0xffd54f, onArrive = null) {
     const dir = v.copy(to).sub(from);
     const dist = dir.length();
     dir.normalize();
@@ -128,8 +128,7 @@ export function createProjectiles(scene) {
     let life = dist / speed;
     const k = shot.kind;
     if (k === 'bullet') {
-      obj.add(new THREE.Mesh(GEO.tracer, basic(0xfff1a8)));
-      obj.add(sprite(0xffd27a, 0.3, 0.8));
+      obj.add(new THREE.Mesh(GEO.tracer, basic(0xfff1a8))); // 弾の筋だけ（光の玉は付けない）
     } else if (k === 'beam') {
       // 光線：一瞬で伸びる
       const b = new THREE.Mesh(GEO.beam, basic(color));
@@ -138,6 +137,7 @@ export function createProjectiles(scene) {
       group.add(obj);
       fx.push({ obj, t: 0, life: 0.12, update(_dt, kk) { b.material.opacity = 1 - kk; } });
       burst(to, color, 0.8);
+      onArrive?.();
       return;
     } else if (k === 'arrow') {
       obj.add(new THREE.Mesh(GEO.arrow, basic(0x8d6e63)), new THREE.Mesh(GEO.arrowHead, basic(0xcfd8dc)));
@@ -165,14 +165,14 @@ export function createProjectiles(scene) {
         const len = Math.min(dist, 12);
         fx.push({ obj: o, t: 0, life: len / speed, update(dt, kk) { o.position.addScaledVector(d2, speed * dt); s.scale.setScalar(0.5 + kk * 1.6); s.material.opacity = 0.8 * (1 - kk); } });
       }
-      if (dist <= 12) burst(to, 0xff6d00, 0.7, 6);
+      if (dist <= 12) { burst(to, 0xff6d00, 0.7, 6); onArrive?.(); }
       return;
     }
     group.add(obj);
     const vel = dir.clone().multiplyScalar(speed);
     // 重力のある物は、落ちる分だけ少し上へ向けて投げる
     if (shot.gravity) vel.y += (shot.gravity * life) / 2;
-    live.push({ obj, vel, gravity: shot.gravity || 0, left: life, kind: k, to: to.clone(), color });
+    live.push({ obj, vel, gravity: shot.gravity || 0, left: life, kind: k, to: to.clone(), color, onArrive });
   }
 
   function update(dt) {
@@ -184,6 +184,7 @@ export function createProjectiles(scene) {
       if (p.gravity) p.obj.quaternion.setFromUnitVectors(fwd, v.copy(p.vel).normalize());
       if (p.kind === 'spin') p.obj.children[0].rotation.y += dt * 25;
       if (p.left <= 0) {
+        p.onArrive?.();
         if (p.kind === 'rocket' || p.kind === 'bomb' || p.kind === 'shell') explode(p.to);
         else burst(p.to, p.kind === 'orb' ? p.color : p.kind === 'goo' ? 0x76ff03 : 0xffd27a, p.kind === 'bullet' ? 0.6 : 0.9);
         group.remove(p.obj);

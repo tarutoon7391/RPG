@@ -20,9 +20,10 @@ import { createLoot } from '../weapons/loot.js';
 import { createInventory } from '../weapons/inventory.js';
 import { createViewModel } from '../weapons/viewmodel.js';
 import { createGallery } from '../weapons/gallery.js';
-import { WEAPON_LIST, rollRarity, RARITIES, WEAPONS_BY_ID } from '../weapons/catalog.js';
+import { WEAPON_LIST, rollRarity, RARITIES, WEAPONS_BY_ID, weaponDamage } from '../weapons/catalog.js';
 import { createSights, sightOf, SIGHT_FOV } from '../weapons/sights.js';
 import { createProjectiles, shotOf } from '../weapons/projectiles.js';
+import { createDummies } from '../weapons/dummies.js';
 import * as THREE from 'three';
 
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -69,6 +70,7 @@ export async function startIsland() {
   const viewmodel = createViewModel(app);
   const sights = createSights();
   const shots = createProjectiles(scene);
+  const dummies = createDummies(scene, island, colliders, layout);
   let curDef = null; // 今持っている武器（catalog）
   let curSight = null;
   let aiming = false;
@@ -103,12 +105,20 @@ export async function startIsland() {
   function aimPoint(range) {
     ray.setFromCamera(center, camera);
     ray.far = range;
-    const targets = [built.group];
+    const targets = [built.group, dummies.group];
     for (const m of tiles.group.children) if (m.visible) targets.push(m);
     const hit = ray.intersectObjects(targets, true)[0];
-    if (hit) return { point: aimTo.copy(hit.point), hit: true, dist: hit.distance };
-    return { point: aimTo.copy(ray.ray.origin).addScaledVector(ray.ray.direction, range), hit: false, dist: range };
+    if (hit) return { point: aimTo.copy(hit.point), hit: true, dist: hit.distance, dummy: hit.object.userData.dummy || null, part: hit.object.userData.part };
+    return { point: aimTo.copy(ray.ray.origin).addScaledVector(ray.ray.direction, range), hit: false, dist: range, dummy: null };
   }
+  /** 今の武器の攻撃力（素手は 8） */
+  const dmgNow = () => (curDef ? weaponDamage(curDef, inv.current?.rarity ?? 0) : 8);
+  function hitDummy(d, amount, part, point) {
+    const r = dummies.damage(d, amount, part, point, camera.position);
+    sights.hit(r.crit);
+    shots.burst(point, r.crit ? 0xffeb3b : 0xffab91, 0.8, 10);
+  }
+
   /** 当たる瞬間：近接は斬撃の弧と火花、飛び道具は十字の先へ飛ばす */
   function onFire(ev) {
     const R = RARITIES[inv.current?.rarity ?? 0];
@@ -118,13 +128,27 @@ export async function startIsland() {
       const reach = curDef ? curDef.range : 2.2;
       shots.slash(camera, ev.step, ev.last, shot.kind === 'punch' ? 0xffe0b2 : color, shot.kind === 'punch' ? 1.0 : 1.3);
       const a = aimPoint(reach + 0.3);
-      if (a.hit) shots.burst(a.point, 0xffffff, 0.7, 8);
+      if (a.hit) shots.burst(a.point, a.dummy ? 0xffcc80 : 0xffffff, 0.7, 8);
+      if (a.dummy) hitDummy(a.dummy, dmgNow() * (ev.last ? 1.3 : 1), a.part, a.point);
       return;
     }
     const range = curDef.range;
     const a = aimPoint(range);
-    from.copy(camera.localToWorld(viewmodel.muzzleLocal(from)));
-    shots.fire(shot, from, a.point, color);
+    // 覗き込み中は、弾を目の少し先から出す（スコープの中が弾で埋まらないように）
+    if (aiming) from.copy(camera.position).addScaledVector(ray.ray.direction, 2.5);
+    else from.copy(camera.localToWorld(viewmodel.muzzleLocal(from)));
+    const target = a.dummy;
+    const part = a.part;
+    const at = a.point.clone();
+    const dmg = dmgNow();
+    const boom = shot.kind === 'rocket' || shot.kind === 'bomb' || shot.kind === 'shell';
+    const shooter = camera.position.clone();
+    shots.fire(shot, from, a.point, color, () => {
+      if (boom) {
+        const hits = dummies.splash(at, 4.5, dmg, shooter);
+        if (hits.length) sights.hit(false);
+      } else if (target) hitDummy(target, dmg, part, at);
+    });
     sights.kick(curDef.type === 'heavy' ? 1.2 : 0.7);
   }
   /** 試合ごとに落とし物を置き直す（家は 3 軒に 1 軒くらい、建物の上や塔のてっぺんは必ず。高いところほど良い物が出やすい） */
@@ -192,6 +216,7 @@ export async function startIsland() {
     touch?.setVisible(false);
     inv.setVisible(false);
     viewmodel.setVisible(false);
+    dummies.setVisible(false);
     menu.title({
       hasSave: false,
       heading: 'BATTLE ISLAND <small>マップテスト</small>',
@@ -227,6 +252,7 @@ export async function startIsland() {
       spawnLoot();
     }
     inv.setVisible(true);
+    dummies.setVisible(true);
     hud.root.style.display = 'block';
     map.setMiniVisible(true);
     touch?.setVisible(true);
@@ -380,6 +406,7 @@ export async function startIsland() {
     }
     if (vm.fire) onFire(vm);
     shots.update(dt);
+    dummies.update(dt, camera);
     if (intent.interact) interact(act);
     areaT -= dt;
     if (areaT <= 0) { areaT = 0.3; checkArea(); }
@@ -454,7 +481,7 @@ export async function startIsland() {
   }
 
   if (new URLSearchParams(location.search).has('debug')) {
-    window.__rpg = { island, built, player, cam, drop, exitTunnel, interact, platforms, loot, inv, viewmodel, shots, setAim, aimPoint, get state() { return state; }, stats: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, tiles: { ...tiles.stats }, props: { ...props.stats }, fps }) };
+    window.__rpg = { island, built, player, cam, drop, exitTunnel, interact, platforms, loot, inv, viewmodel, shots, dummies, setAim, aimPoint, get state() { return state; }, stats: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, tiles: { ...tiles.stats }, props: { ...props.stats }, fps }) };
   }
   showTitle();
 }

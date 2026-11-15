@@ -166,3 +166,16 @@ body.touch-on .t-act { right: 258px; bottom: 60px; width: 64px; height: 64px; }
 .t-aim svg { width: 100%; height: 100%; }
 .t-aim.on { background: #ff5252aa; border-color: #fff; }
 body.touch-on .t-aim { right: 252px; bottom: 140px; }
+
+/* ---- ダメージの数字・当たった印 ---- */
+.dmg-layer { position: fixed; inset: 0; pointer-events: none; z-index: 10; overflow: hidden; }
+.dmg-num { position: absolute; left: 0; top: 0; font: 900 22px/1 system-ui, sans-serif; color: #fff; text-shadow: 0 0 3px #000, 0 2px 4px #000, 0 0 1px #000; white-space: nowrap; }
+.dmg-num.crit { color: #ffeb3b; font-size: 30px; }
+.dmg-total { position: absolute; left: 0; top: 0; font: 700 12px/1 system-ui, sans-serif; color: #ffe0b2; background: #000a; border-radius: 6px; padding: 3px 7px; white-space: nowrap; }
+.sg-hit { display: none; position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+.sg-hit i { position: absolute; width: 2.5px; height: 11px; background: #fff; box-shadow: 0 0 2px #000; left: -1.25px; top: -5.5px; }
+.sg-hit i:nth-child(1) { transform: rotate(45deg) translateY(-11px); }
+.sg-hit i:nth-child(2) { transform: rotate(135deg) translateY(-11px); }
+.sg-hit i:nth-child(3) { transform: rotate(225deg) translateY(-11px); }
+.sg-hit i:nth-child(4) { transform: rotate(315deg) translateY(-11px); }
+.sg-hit.crit i { background: #ff5252; }
