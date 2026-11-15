@@ -114,6 +114,7 @@ export async function startIsland() {
       ],
       keys: 'WASD：移動　Shift：ダッシュ　Space：ジャンプ　マウス：視点（クリックでロック）\nF：調べる　M：地図　V：一人称／三人称　G：爆速（テスト用）　F3：デバッグ　Esc：ポーズ',
       note: '広大マップのテストは <a href="/world/" style="color:#58a6ff">/world/</a>',
+      onSettings: () => menu.settings({ q, touch: touchMode, onChange: onQuality, onBack: () => showTitle() }),
       onNew: () => { menu.hide(); openDrop(); },
     });
   }
@@ -144,6 +145,14 @@ export async function startIsland() {
     resumeLock();
   }
 
+  /** 設定を変えたとき（保存して反映） */
+  function onQuality(k) {
+    localStorage.setItem('rpg:br:quality', JSON.stringify(q));
+    if (k === 'viewDist') env.outdoor(q.viewDist);
+    if (k === 'shadows') env.sun.castShadow = q.shadows;
+    if (k === 'pixelRatio') { app.pixelRatioMax = q.pixelRatio; app.resize(); }
+  }
+
   function pause() {
     if (state !== 'play') return;
     state = 'pause';
@@ -151,16 +160,12 @@ export async function startIsland() {
     const a = areaAt(player.pos.x, player.pos.z);
     menu.pause({
       q,
+      touch: touchMode,
       info: `いま：${a ? esc(a.name) : '野原'}　開けた宝箱 ${opened.size} / ${built.chests.length}`,
       onResume: () => { menu.hide(); resumeLock(); },
       onMap: () => { menu.hide(); state = 'play'; openMap(); },
       onTitle: () => showTitle(),
-      onChange: (k) => {
-        localStorage.setItem('rpg:br:quality', JSON.stringify(q));
-        if (k === 'viewDist') env.outdoor(q.viewDist);
-        if (k === 'shadows') env.sun.castShadow = q.shadows;
-        if (k === 'pixelRatio') { app.pixelRatioMax = q.pixelRatio; app.resize(); }
-      },
+      onChange: onQuality,
     });
   }
   function openMap() {
@@ -277,11 +282,11 @@ export async function startIsland() {
       intent.dash = intent.dash || s.dash;
       intent.jump = intent.jump || s.held.has('jump');
       intent.interact = intent.interact || s.pressed.has('interact');
-      cam.input(s.dx, s.dy, 0);
+      cam.input(s.dx * q.touchSens, s.dy * q.touchSens, 0);
     }
     intent.moveX = mx;
     intent.moveZ = mz;
-    if (input.mouse.locked) cam.input(input.mouse.dx, input.mouse.dy, input.mouse.wheel);
+    if (input.mouse.locked) cam.input(input.mouse.dx * q.mouseSens, input.mouse.dy * q.mouseSens, input.mouse.wheel);
     else if (!cam.fps) cam.input(0, 0, input.mouse.wheel);
     if (input.wasPressed('KeyV')) toggleView();
     if (input.wasPressed('KeyG')) toggleBoost();

@@ -43,4 +43,6 @@ export const QUALITY_DEFAULT = {
   propDist: MODE === 'br' ? 5 : 5, // 木や岩を出す範囲（128m セルいくつぶん）
   shadows: true,
   pixelRatio: 1.5,
+  touchSens: 1, // スマホのフリックの感度（1 = いちばん遅い）
+  mouseSens: 1, // PC のマウスの感度（1 = 標準）
 };

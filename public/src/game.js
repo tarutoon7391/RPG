@@ -124,6 +124,7 @@ export async function startGame() {
         `ダンジョン <b>${counts.dungeons}</b>（全 ${counts.floors} 階）`,
         `端から端まで歩いて約 <b>${Math.round(WORLD.size / MOVE.dash / 60)}</b> 分（ダッシュ）`,
       ],
+      onSettings: () => menu.settings({ q, touch: touchMode, onChange: onQuality, onBack: () => showTitle() }),
       onNew: () => { save = store.fresh(); begin(); },
       onContinue: () => { save = store.load(); begin(); },
     });
@@ -156,6 +157,14 @@ export async function startGame() {
     resumeLock();
   }
 
+  /** 設定を変えたとき（保存して反映） */
+  function onQuality(k) {
+    localStorage.setItem('rpg:quality', JSON.stringify(q));
+    if (k === 'viewDist' && !inDungeon) env.outdoor(q.viewDist);
+    if (k === 'shadows') env.sun.castShadow = q.shadows;
+    if (k === 'pixelRatio') { app.pixelRatioMax = q.pixelRatio; app.resize(); }
+  }
+
   function pause() {
     if (state !== 'play') return;
     state = 'pause';
@@ -163,16 +172,12 @@ export async function startGame() {
     const reg = inDungeon ? null : regionAt(world, player.pos.x, player.pos.z);
     menu.pause({
       q,
+      touch: touchMode,
       info: `歩いた距離 ${fmtDist(save.odo)}｜プレイ時間 ${fmtTime(save.time)}${reg ? `｜いま：${esc(reg.name)}` : ''}`,
       onResume: () => { menu.hide(); resumeLock(); },
       onMap: () => { menu.hide(); state = 'play'; openMap(); },
       onTitle: () => { autosave(); showTitle(); },
-      onChange: (k) => {
-        localStorage.setItem('rpg:quality', JSON.stringify(q));
-        if (k === 'viewDist' && !inDungeon) env.outdoor(q.viewDist);
-        if (k === 'shadows') env.sun.castShadow = q.shadows;
-        if (k === 'pixelRatio') { app.pixelRatioMax = q.pixelRatio; app.resize(); }
-      },
+      onChange: onQuality,
     });
   }
 
@@ -416,11 +421,11 @@ export async function startGame() {
       intent.dash = intent.dash || s.dash;
       intent.jump = intent.jump || s.held.has('jump');
       intent.interact = intent.interact || s.pressed.has('interact');
-      cam.input(s.dx, s.dy, 0);
+      cam.input(s.dx * q.touchSens, s.dy * q.touchSens, 0);
     }
     intent.moveX = mx;
     intent.moveZ = mz;
-    if (input.mouse.locked) cam.input(input.mouse.dx, input.mouse.dy, input.mouse.wheel);
+    if (input.mouse.locked) cam.input(input.mouse.dx * q.mouseSens, input.mouse.dy * q.mouseSens, input.mouse.wheel);
     else if (!cam.fps) cam.input(0, 0, input.mouse.wheel);
     if (input.wasPressed('KeyV')) toggleView();
     if (input.wasPressed('KeyG')) toggleBoost();
