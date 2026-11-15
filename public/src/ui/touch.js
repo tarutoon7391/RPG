@@ -107,6 +107,7 @@ export function createTouch({ onPause, onView, onMap, onBoost }) {
     });
   }
   look.addEventListener('contextmenu', (e) => e.preventDefault());
+  if (!onView) root.querySelector('[data-a="view"]').remove(); // 視点切り替えの無いゲームでは出さない
 
   return {
     state,

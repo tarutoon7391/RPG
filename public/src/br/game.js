@@ -51,11 +51,12 @@ export async function startIsland() {
   const props = createProps(scene, island, q, colliders);
   const player = createPlayer(scene);
   const cam = createCameraRig(camera);
+  player.hero.group.visible = false; // 一人称だけのゲーム（自分の体は描かない）
   const hud = createHud();
   menu.loading('地図を描いています', 0.7);
   await nextFrame();
   const map = createIslandMap(island, built, { onPick: (p) => drop(p.x, p.z), onClose: () => resumeLock() });
-  const touch = touchMode ? createTouch({ onPause: () => pause(), onView: () => toggleView(), onMap: () => openMap(), onBoost: () => toggleBoost() }) : null;
+  const touch = touchMode ? createTouch({ onPause: () => pause(), onView: null, onMap: () => openMap(), onBoost: () => toggleBoost() }) : null;
   touch?.setVisible(false);
   map.setMiniVisible(false);
   env.outdoor(q.viewDist);
@@ -71,7 +72,6 @@ export async function startIsland() {
   let curDef = null; // 今持っている武器（catalog）
   let curSight = null;
   let aiming = false;
-  let tpsBeforeAim = false;
   let rightDown = false;
   const inv = createInventory({ onChange: (slot) => {
     curDef = slot ? WEAPONS_BY_ID[slot.id] : null;
@@ -87,13 +87,11 @@ export async function startIsland() {
   const gallery = createGallery({ onClose: () => galleryBack?.() });
   const randomWeapon = () => WEAPON_LIST[Math.floor(Math.random() * WEAPON_LIST.length)];
 
-  /** 覗き込みの切り替え。三人称のときは覗いている間だけ一人称にする */
+  /** 覗き込みの切り替え */
   function setAim(on) {
     on = !!on && !!curSight;
     if (on === aiming) return;
     aiming = on;
-    if (on && !cam.fps) { tpsBeforeAim = true; toggleView(); }
-    if (!on && tpsBeforeAim) { tpsBeforeAim = false; toggleView(); }
     touch?.setAim(!!curSight, aiming);
   }
 
@@ -118,15 +116,14 @@ export async function startIsland() {
     const shot = shotOf(curDef);
     if (shot.kind === 'slash' || shot.kind === 'punch') {
       const reach = curDef ? curDef.range : 2.2;
-      if (cam.fps) shots.slash(camera, ev.step, ev.last, shot.kind === 'punch' ? 0xffe0b2 : color, shot.kind === 'punch' ? 1.0 : 1.3);
-      const a = aimPoint(reach + (cam.fps ? 0.3 : cam.tps.curDist));
-      if (a.hit && a.dist <= reach + (cam.fps ? 0.3 : cam.tps.curDist)) shots.burst(a.point, 0xffffff, 0.7, 8);
+      shots.slash(camera, ev.step, ev.last, shot.kind === 'punch' ? 0xffe0b2 : color, shot.kind === 'punch' ? 1.0 : 1.3);
+      const a = aimPoint(reach + 0.3);
+      if (a.hit) shots.burst(a.point, 0xffffff, 0.7, 8);
       return;
     }
     const range = curDef.range;
-    const a = aimPoint(range + (cam.fps ? 0 : cam.tps.curDist));
-    if (cam.fps) from.copy(camera.localToWorld(viewmodel.muzzleLocal(from)));
-    else player.hero.handWorld(from);
+    const a = aimPoint(range);
+    from.copy(camera.localToWorld(viewmodel.muzzleLocal(from)));
     shots.fire(shot, from, a.point, color);
     sights.kick(curDef.type === 'heavy' ? 1.2 : 0.7);
   }
@@ -206,7 +203,7 @@ export async function startIsland() {
         `地下の抜け道 <b>${TUNNELS.length}</b>`,
         `端から端までダッシュで約 <b>${Math.round(900 / MOVE.dash)}</b> 秒`,
       ],
-      keys: 'WASD：移動　Shift：ダッシュ　Space：ジャンプ　マウス：視点（クリックでロック）\nF：調べる　M：地図　V：一人称／三人称　G：爆速（テスト用）　F3：デバッグ　Esc：ポーズ',
+      keys: 'WASD：移動　Shift：ダッシュ　Space：ジャンプ　マウス：視点（クリックでロック）\nF：調べる　M：地図　右クリック：覗き込み　1〜3：持ち替え　G：爆速（テスト用）　F3：デバッグ　Esc：ポーズ',
       note: '広大マップのテストは <a href="/world/" style="color:#58a6ff">/world/</a>',
       onSettings: () => menu.settings({ q, touch: touchMode, onChange: onQuality, onBack: () => showTitle() }),
       onGallery: () => { menu.hide(); galleryBack = () => showTitle(); gallery.open(); },
@@ -233,7 +230,6 @@ export async function startIsland() {
     hud.root.style.display = 'block';
     map.setMiniVisible(true);
     touch?.setVisible(true);
-    player.hero.group.visible = !cam.fps;
     hud.crosshair(false);
     const g = Math.max(island.height(x, z), 0);
     player.place(x, z, g + DROP_HEIGHT);
@@ -277,11 +273,6 @@ export async function startIsland() {
     state = 'map';
     unlock();
     map.open({ x: player.pos.x, z: player.pos.z, yaw: cam.yaw });
-  }
-  function toggleView() {
-    cam.setMode(cam.fps ? 'tps' : 'fps');
-    player.hero.group.visible = !cam.fps;
-    hud.crosshair(false);
   }
   function toggleBoost() {
     player.boost = !player.boost;
@@ -377,9 +368,9 @@ export async function startIsland() {
     hud.setPrompt(act ? (act.kind === 'chest' && opened.has(act.chest) ? '空の宝箱' : act.label) : '');
     loot.update(dt, player.pos.x, player.pos.z);
     if (state !== 'play' || player.gliding) setAim(false);
-    viewmodel.setVisible(state === 'play' && cam.fps);
+    viewmodel.setVisible(state === 'play');
     const vm = viewmodel.update(dt, { walk: player.walking ? 1 : 0, phase: player.walkPhase, lookDx: input.mouse.dx, lookDy: input.mouse.dy, aiming, scope: curSight === 'scope' });
-    if (cam.fps) {
+    {
       const f = 75 + ((SIGHT_FOV[curSight] || 75) - 75) * vm.ads;
       if (Math.abs(camera.fov - f) > 0.01) { camera.fov = f; camera.updateProjectionMatrix(); }
     }
@@ -423,8 +414,6 @@ export async function startIsland() {
     intent.moveZ = mz;
     const zoomSens = camera.fov / 75; // 覗き込んでズームしているほど視点をゆっくり
     if (input.mouse.locked) cam.input(input.mouse.dx * q.mouseSens * zoomSens, input.mouse.dy * q.mouseSens * zoomSens, input.mouse.wheel);
-    else if (!cam.fps) cam.input(0, 0, input.mouse.wheel);
-    if (input.wasPressed('KeyV')) toggleView();
     if (input.wasPressed('KeyG')) toggleBoost();
     if (input.wasPressed('KeyM')) openMap();
     // 武器：攻撃（左クリック／攻撃ボタン）・持ち替え（1〜3／一人称ならホイール）
@@ -437,7 +426,7 @@ export async function startIsland() {
     }
     if (aiming) intent.dash = false;
     for (let i = 0; i < 3; i++) if (input.wasPressed(`Digit${i + 1}`)) inv.select(i);
-    if (cam.fps && input.mouse.locked && input.mouse.wheel) inv.next(Math.sign(input.mouse.wheel));
+    if (input.mouse.locked && input.mouse.wheel) inv.next(Math.sign(input.mouse.wheel));
   }
 
   function checkArea() {
@@ -465,7 +454,7 @@ export async function startIsland() {
   }
 
   if (new URLSearchParams(location.search).has('debug')) {
-    window.__rpg = { island, built, player, cam, drop, exitTunnel, toggleView, interact, platforms, loot, inv, viewmodel, shots, setAim, aimPoint, get state() { return state; }, stats: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, tiles: { ...tiles.stats }, props: { ...props.stats }, fps }) };
+    window.__rpg = { island, built, player, cam, drop, exitTunnel, interact, platforms, loot, inv, viewmodel, shots, setAim, aimPoint, get state() { return state; }, stats: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, tiles: { ...tiles.stats }, props: { ...props.stats }, fps }) };
   }
   showTitle();
 }
