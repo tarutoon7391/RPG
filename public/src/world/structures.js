@@ -5,6 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32 } from '../noise.js';
 import { paint } from './props.js';
 import { BIOMES } from './terrain.js';
+import { hollowHouse, bigBuilding, spiralTower } from './interiors.js';
 
 export const lit = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
 export const glow = new THREE.MeshBasicMaterial({ vertexColors: true, fog: true });
@@ -14,8 +15,9 @@ export function kit() {
   const solid = [];
   const shine = [];
   const cols = []; // ローカル座標の当たり判定
+  const plats = []; // ローカル座標の乗れる板（島で使う）
   const k = {
-    solid, shine, cols,
+    solid, shine, cols, plats,
     add(geo, color, x = 0, y = 0, z = 0, ry = 0, bright = false) {
       if (ry) geo.rotateY(ry);
       geo.translate(x, y, z);
@@ -25,7 +27,8 @@ export function kit() {
     cyl(rt, rb, h, color, x, y, z, seg = 10, bright = false) { k.add(new THREE.CylinderGeometry(rt, rb, h, seg), color, x, y + h / 2, z, 0, bright); },
     cone(r, h, color, x, y, z, seg = 10, ry = 0) { k.add(new THREE.ConeGeometry(r, h, seg), color, x, y + h / 2, z, ry); },
     circle(x, z, r) { cols.push({ x, z, r }); },
-    rect(minX, maxX, minZ, maxZ, top) { cols.push({ minX, maxX, minZ, maxZ, top }); },
+    rect(minX, maxX, minZ, maxZ, top, bot) { cols.push({ minX, maxX, minZ, maxZ, top, bot }); },
+    plat(p) { plats.push(p); },
   };
   return k;
 }
@@ -99,17 +102,16 @@ export function buildTown(p, k, rnd, { capital = false } = {}) {
       const ry = rnd() < 0.5 ? 0 : Math.PI / 2;
       const W = ry ? d : w;
       const D = ry ? w : d;
-      k.box(W, h, D, WALLS[Math.floor(rnd() * WALLS.length)], x, 0, z);
+      hollowHouse(k, x, z, W, D, h, WALLS[Math.floor(rnd() * WALLS.length)]);
+      k.houses?.push({ x: p.x + x, z: p.z + z, w: W, d: D, h });
       const roof = new THREE.ConeGeometry(0.72, 1, 4);
       roof.rotateY(Math.PI / 4);
       const rh = 2.4 + rnd() * 1.5;
       roof.scale(W, rh, D);
       k.add(roof, ROOFS[Math.floor(rnd() * ROOFS.length)], x, h + rh / 2, z);
       // 窓（夕方っぽく光る）
-      k.box(1.1, 1, 0.1, 0xffd88a, x - W * 0.2, h * 0.45, z + D / 2 + 0.03, 0, true);
-      k.box(1.1, 1, 0.1, 0xffd88a, x + W * 0.2, h * 0.45, z + D / 2 + 0.03, 0, true);
-      k.box(1.2, 2, 0.1, 0x5a3a22, x, 0, z + D / 2 + 0.03);
-      k.rect(x - W / 2, x + W / 2, z - D / 2, z + D / 2, h + 3);
+      k.box(1.0, 1, 0.1, 0xffd88a, x - W * 0.3, h * 0.45, z + D / 2 + 0.03, 0, true);
+      k.box(1.0, 1, 0.1, 0xffd88a, x + W * 0.3, h * 0.45, z + D / 2 + 0.03, 0, true);
     }
   }
   // 街灯
@@ -125,22 +127,21 @@ export function buildTown(p, k, rnd, { capital = false } = {}) {
 
 export function buildCapital(p, k, rnd) {
   buildTown(p, k, rnd, { capital: true });
-  // 王城（中心から北＝-z 側）
+  // 王城（中心から北＝-z 側）：1階の大広間・2階・屋上。四隅に螺旋階段の塔
   const cz = -60;
-  k.box(46, 18, 36, 0xe4ded2, 0, 0, cz);
-  k.box(30, 12, 22, 0xd8d1c3, 0, 18, cz - 2);
-  k.box(14, 10, 12, 0xcfc7b8, 0, 30, cz - 4);
-  k.cone(10, 12, 0x3f5f8f, 0, 40, cz - 4, 4, Math.PI / 4);
-  for (const [x, z] of [[-23, cz - 18], [23, cz - 18], [-23, cz + 18], [23, cz + 18]]) {
-    k.cyl(5, 5.6, 34, 0xeae4d8, x, 0, z, 12);
-    k.cone(6.4, 12, 0x3f5f8f, x, 34, z, 12);
-    k.circle(x, z, 5.8);
+  bigBuilding(k, { x: 0, z: cz, w: 46, d: 36, floorH: 8, floors: 2, color: 0xe4ded2, roof: 'flat', door: [7, 6], pillars: [[-10, -6], [10, -6], [-10, 6], [10, 6]] });
+  // 屋上の小さな天守（中には入れない）
+  k.box(14, 9, 10, 0xd8d1c3, 0, 16, cz - 10);
+  k.cone(9, 9, 0x3f5f8f, 0, 25, cz - 10, 4, Math.PI / 4);
+  k.rect(-7, 7, cz - 15, cz - 5, undefined, 15.5);
+  k.box(0.2, 8, 0.2, 0x333333, 0, 34, cz - 10);
+  k.box(4, 2.4, 0.1, 0xd23a3a, 2.1, 39, cz - 10);
+  // 四隅の塔（外向きに扉）
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    const tx = sx * 29;
+    const tz = cz + sz * 24;
+    spiralTower(k, { x: tx, z: tz, R: 5, H: 30, door: Math.atan2(sx, sz), color: 0xeae4d8, roofColor: 0x3f5f8f });
   }
-  k.box(7, 9, 0.6, 0x4a3020, 0, 0, cz + 18.1); // 城門
-  k.rect(-23, 23, cz - 18, cz + 18);
-  // 旗
-  k.box(0.2, 10, 0.2, 0x333333, 0, 52, cz - 4);
-  k.box(4, 2.4, 0.1, 0xd23a3a, 2.1, 59, cz - 4);
 }
 
 // ------------------------------------------------------------ ステージ碑
@@ -284,8 +285,10 @@ export function createStructures(scene, world, colliders) {
     group.add(obj);
     // 当たり判定をワールド座標へ（箱は回転しない前提＝町・王都・墓所は yaw 0 か、小さいので円で十分）
     const cols = k.cols.map((c) => {
-      if (c.r !== undefined) { const w = toWorld(p, c.x, c.z); return { x: w.x, z: w.z, r: c.r }; }
-      if (!p.yaw) return { minX: p.x + c.minX, maxX: p.x + c.maxX, minZ: p.z + c.minZ, maxZ: p.z + c.maxZ, top: c.top !== undefined ? p.h + c.top : undefined };
+      const top = c.top !== undefined ? p.h + c.top : undefined;
+      const bot = c.bot !== undefined ? p.h + c.bot : undefined;
+      if (c.r !== undefined) { const w = toWorld(p, c.x, c.z); return { x: w.x, z: w.z, r: c.r, top, bot }; }
+      if (!p.yaw) return { minX: p.x + c.minX, maxX: p.x + c.maxX, minZ: p.z + c.minZ, maxZ: p.z + c.maxZ, top, bot };
       const w = toWorld(p, (c.minX + c.maxX) / 2, (c.minZ + c.maxZ) / 2);
       return { x: w.x, z: w.z, r: Math.min(c.maxX - c.minX, c.maxZ - c.minZ) / 2 };
     });

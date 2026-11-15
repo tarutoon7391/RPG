@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { kit, toWorld, buildCapital, buildDungeon, lit, glow } from '../world/structures.js';
+import { bigBuilding, spiralTower } from '../world/interiors.js';
 import { mulberry32 } from '../noise.js';
 import { AREAS, BRIDGES, riverDist } from './island.js';
 
@@ -22,7 +23,7 @@ export function planIsland(island) {
   L.town = { x: 0, z: 10, r: 105, yaw: 0 };
   L.town.h = island.addFlat(L.town.x, L.town.z, 105, 45, undefined, 0.3);
   L.fort = { x: 30, z: -330, yaw: 0 };
-  L.fort.h = island.addFlat(30, -330, 36, 26, undefined, -2);
+  L.fort.h = island.addFlat(30, -330, 47, 30, undefined, -3);
   L.ruins = { x: 320, z: -10, yaw: 0 };
   L.ruins.h = island.addFlat(320, -10, 72, 30, undefined, 0);
   L.harbor = { x: 40, z: 360, yaw: 0 };
@@ -72,12 +73,15 @@ export function buildIsland(scene, island, L, colliders, platforms) {
     for (const g of [...k.solid, ...k.shine]) g.dispose();
     group.add(obj);
     const cols = k.cols.map((c) => {
-      if (c.r !== undefined) { const w = toWorld(p, c.x, c.z); return { x: w.x, z: w.z, r: c.r }; }
-      if (!p.yaw) return { minX: p.x + c.minX, maxX: p.x + c.maxX, minZ: p.z + c.minZ, maxZ: p.z + c.maxZ, top: c.top !== undefined ? p.h + c.top : undefined };
+      const top = c.top !== undefined ? p.h + c.top : undefined;
+      const bot = c.bot !== undefined ? p.h + c.bot : undefined;
+      if (c.r !== undefined) { const w = toWorld(p, c.x, c.z); return { x: w.x, z: w.z, r: c.r, top, bot }; }
+      if (!p.yaw) return { minX: p.x + c.minX, maxX: p.x + c.maxX, minZ: p.z + c.minZ, maxZ: p.z + c.maxZ, top, bot };
       const w = toWorld(p, (c.minX + c.maxX) / 2, (c.minZ + c.maxZ) / 2);
       return { x: w.x, z: w.z, r: Math.min(c.maxX - c.minX, c.maxZ - c.minZ) / 2 };
     });
     colliders.setGroup(name, cols);
+    for (const q of k.plats) addPlat(p, q.x, q.z, q.hw, q.hl, q.y0, q.y1 ?? q.y0, q.yaw || 0);
     return obj;
   }
   /** ローカルの板をワールドの乗れる板として登録 */
@@ -87,37 +91,40 @@ export function buildIsland(scene, island, L, colliders, platforms) {
   }
 
   // ---- 王都（城下町＋王城） ----
-  { const k = kit(); buildCapital({ ...L.town, r: 105 }, k, rnd); emit('town', L.town, k); }
+  const houses = [];
+  { const k = kit(); k.houses = houses; buildCapital({ ...L.town, r: 105 }, k, rnd); emit('town', L.town, k); }
 
-  // ---- 雪山砦 ----
+  // ---- 雪山砦：四隅に螺旋階段の塔、真ん中に 2 階建て＋屋上の本丸 ----
   {
     const k = kit();
     const S = 30;
+    const TR = 4; // 塔の半径
     const W = 0xbfc3c8;
-    k.cyl(S + 4, S + 4, 0.2, 0x9aa0a6, 0, -0.1, 0, 4);
-    k.box(2 * S, 7, 2, W, 0, 0, -S); // 北の壁
-    for (const side of [-1, 1]) k.box(2, 7, 2 * S, W, side * S, 0, 0); // 東西の壁
-    for (const side of [-1, 1]) k.box(S - 5, 7, 2, W, side * (S + 5) / 2, 0, S); // 南の壁（真ん中が門）
+    const FOUND = 8; // 斜面でも浮かないように地面の下まで伸ばす
+    k.cyl(S + 6, S + 6, 0.2, 0x9aa0a6, 0, -0.1, 0, 4);
+    const L2 = S - TR; // 塔と塔の間の壁の半分
+    k.box(2 * L2, 7 + FOUND, 2, W, 0, -FOUND, -S); // 北
+    for (const side of [-1, 1]) k.box(2, 7 + FOUND, 2 * L2, W, side * S, -FOUND, 0); // 東西
+    const half = (L2 - 5) / 2;
+    for (const side of [-1, 1]) k.box(L2 - 5, 7 + FOUND, 2, W, side * (5 + half), -FOUND, S); // 南（真ん中が門）
     k.box(12, 2, 2.4, W, 0, 7, S); // 門の上
-    k.rect(-S - 1, S + 1, -S - 1, -S + 1);
-    k.rect(-S - 1, -S + 1, -S, S);
-    k.rect(S - 1, S + 1, -S, S);
-    k.rect(-S - 1, -5, S - 1, S + 1);
-    k.rect(5, S + 1, S - 1, S + 1);
-    for (const [x, z] of [[-S, -S], [S, -S], [-S, S], [S, S]]) {
-      k.cyl(3.6, 4, 13, 0xcfd3d8, x, 0, z, 10);
-      k.cone(4.6, 5, 0x3f5f8f, x, 13, z, 10);
-      k.circle(x, z, 4);
+    k.rect(-L2, L2, -S - 1, -S + 1);
+    k.rect(-S - 1, -S + 1, -L2, L2);
+    k.rect(S - 1, S + 1, -L2, L2);
+    k.rect(-L2, -5, S - 1, S + 1);
+    k.rect(5, L2, S - 1, S + 1);
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      k.cyl(TR + 0.3, TR + 0.6, FOUND, 0xa8adb3, sx * S, -FOUND, sz * S, 12); // 塔の土台
+      spiralTower(k, { x: sx * S, z: sz * S, R: TR, H: 14, door: Math.atan2(-sx, -sz), color: 0xcfd3d8, roofColor: 0x3f5f8f, rise: 5 });
     }
-    k.box(18, 10, 16, 0xd6dade, 0, 0, -8);
-    k.cone(13, 7, 0x3f5f8f, 0, 10, -8, 4, Math.PI / 4);
-    k.rect(-9, 9, -16, 0);
-    k.box(0.2, 8, 0.2, 0x333333, 0, 17, -8);
-    k.box(3, 1.8, 0.1, 0x3f7fd2, 1.6, 23, -8);
+    bigBuilding(k, { x: 0, z: -8, w: 18, d: 16, floorH: 5, floors: 2, color: 0xd6dade, roof: 'flat', door: [3, 3.2] });
+    k.box(0.2, 8, 0.2, 0x333333, 4, 10, -12);
+    k.box(3, 1.8, 0.1, 0x3f7fd2, 5.6, 16, -12);
     // 物資の木箱
     for (let i = 0; i < 6; i++) {
       const x = -20 + rnd() * 40;
-      const z = 6 + rnd() * 18;
+      const z = 8 + rnd() * 14;
+      if (Math.abs(x) < 3) continue;
       k.box(1.6, 1.6, 1.6, 0x8a6a42, x, 0, z, rnd());
       k.circle(x, z, 1.1);
     }
@@ -177,14 +184,13 @@ export function buildIsland(scene, island, L, colliders, platforms) {
     const p = L.harbor;
     k.cyl(56, 56, 0.25, 0x9c958a, 0, -0.2, 0, 32);
     // 倉庫
-    for (const [x, z, w, d] of [[-30, -18, 16, 11], [-8, -26, 13, 10], [26, -20, 18, 12]]) {
-      k.box(w, 7, d, 0x8a6d4f, x, 0, z);
+    // 倉庫（2階建て。中の階段で 2 階へ）
+    for (const [x, z, w, d] of [[-30, -18, 16, 12], [-8, -26, 13, 11], [26, -20, 18, 12]]) {
+      bigBuilding(k, { x, z, w, d, floorH: 4, floors: 2, color: 0x8a6d4f, roof: 'none', door: [3.2, 3.2] });
       const roof = new THREE.CylinderGeometry(d * 0.62, d * 0.62, w + 0.6, 3, 1);
       roof.rotateZ(Math.PI / 2);
       roof.rotateX(Math.PI / 6 + Math.PI);
-      k.add(roof, 0x5a4636, x, 7 + d * 0.15, z);
-      k.box(3.4, 4, 0.2, 0x3a2a1a, x, 0, z + d / 2 + 0.05);
-      k.rect(x - w / 2, x + w / 2, z - d / 2, z + d / 2);
+      k.add(roof, 0x5a4636, x, 8 + d * 0.15, z);
     }
     // 木箱・樽
     for (let i = 0; i < 16; i++) {
@@ -216,17 +222,14 @@ export function buildIsland(scene, island, L, colliders, platforms) {
     emit('harbor', p, k);
   }
 
-  // ---- 灯台 ----
+  // ---- 灯台（螺旋階段でてっぺんのバルコニーへ） ----
   {
     const k = kit();
-    for (let i = 0; i < 6; i++) k.cyl(3.6 - i * 0.25, 3.85 - i * 0.25, 4.4, i % 2 ? 0xd23a3a : 0xf2f2f2, 0, i * 4.4, 0, 14);
-    k.cyl(2.4, 2.4, 3, 0x333333, 0, 26.4, 0, 10);
-    k.add(new THREE.SphereGeometry(1.6, 12, 8), 0xfff2a8, 0, 28, 0, 0, true);
-    k.cone(2.8, 2.4, 0x333333, 0, 29.4, 0, 10);
-    k.circle(0, 0, 3.9);
-    k.box(7, 3.6, 6, 0xe8e0d0, 7, 0, 5);
-    k.cone(5.2, 2.2, 0x3f5f8f, 7, 3.6, 5, 4, Math.PI / 4);
-    k.rect(3.5, 10.5, 2, 8);
+    spiralTower(k, { x: 0, z: 0, R: 3.8, H: 24, door: 0, color: 0xf2f2f2, stripe: 0xd23a3a, roofColor: 0x333333, rise: 5 });
+    k.add(new THREE.SphereGeometry(1.2, 12, 8), 0xfff2a8, 0, 24 + 7.4, 0, 0, true);
+    k.box(7, 3.6, 6, 0xe8e0d0, 8, 0, 6);
+    k.cone(5.2, 2.2, 0x3f5f8f, 8, 3.6, 6, 4, Math.PI / 4);
+    k.rect(4.5, 11.5, 3, 9);
     emit('lighthouse', L.lighthouse, k);
   }
 
@@ -350,6 +353,7 @@ export function buildIsland(scene, island, L, colliders, platforms) {
     group,
     acts,
     chests,
+    houses,
     animate(dt) { for (const a of anims) a(dt); },
     nearest(px, pz) {
       let best = null;

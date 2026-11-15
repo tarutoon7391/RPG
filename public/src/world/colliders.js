@@ -27,7 +27,7 @@ export function createColliders() {
   }
 
   /**
-   * 位置 (x,z) 半径 r の円を押し出す。y が箱の top より上なら乗り越えられる
+   * 位置 (x,z) 半径 r の円を押し出す。y が top より上、または体（y〜y+1.8）が bot より下なら当たらない
    * @returns {{x, z}} 補正後
    */
   function resolve(x, z, r, y = 0) {
@@ -41,6 +41,7 @@ export function createColliders() {
       if (!set && !near.length) break;
       for (const s of near) {
         if (s.top !== undefined && y > s.top) continue;
+        if (s.bot !== undefined && y + 1.8 <= s.bot) continue;
         if (s.r !== undefined) {
           const dx = x - s.x;
           const dz = z - s.z;
@@ -80,6 +81,7 @@ export function createColliders() {
     if (!set) return false;
     for (const s of set) {
       if (s.top !== undefined && y > s.top) continue;
+      if (s.bot !== undefined && y + 1.8 <= s.bot) continue;
       if (s.r !== undefined ? Math.hypot(x - s.x, z - s.z) < s.r : x > s.minX && x < s.maxX && z > s.minZ && z < s.maxZ) return true;
     }
     return false;
