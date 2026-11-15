@@ -1,0 +1,94 @@
+/* RPG ワールドテストの見た目 */
+html, body { margin: 0; height: 100%; background: #0d1117; overflow: hidden; font-family: system-ui, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif; color: #f0f4f8; -webkit-user-select: none; user-select: none; touch-action: none; }
+button { font: inherit; cursor: pointer; }
+
+/* ---- HUD ---- */
+.hud { position: fixed; inset: 0; pointer-events: none; z-index: 12; text-shadow: 0 1px 3px #000c; }
+.hud-status { position: absolute; left: 12px; top: 12px; background: #0b0f16b0; border: 1px solid #30363d; border-radius: 10px; padding: 8px 12px; min-width: 240px; }
+.st-region { font-size: 17px; color: #ffd54f; font-weight: bold; }
+.st-sub { font-size: 13px; color: #c5d1dc; margin-top: 2px; }
+.st-swim { color: #80d8ff; }
+.st-boost { margin-top: 4px; font-size: 13px; color: #ff8a65; font-weight: bold; animation: blink .6s infinite; }
+.hud-compass { position: absolute; left: 50%; top: 10px; width: 300px; height: 26px; transform: translateX(-50%); overflow: hidden; background: #0b0f1688; border: 1px solid #30363d; border-radius: 8px; -webkit-mask-image: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent); mask-image: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent); }
+.hud-compass-strip { position: absolute; left: 0; top: 0; height: 100%; }
+.hud-compass-strip span { position: absolute; top: 5px; transform: translateX(-50%); font-size: 11px; color: #9fb1c2; }
+.hud-compass-strip span.big { font-size: 15px; top: 3px; color: #fff; font-weight: bold; }
+.hud-compass i { position: absolute; left: 50%; bottom: 0; width: 2px; height: 7px; background: #ff5252; }
+.hud-prompt { display: none; position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); background: #0b0f16d0; border: 1px solid #ffd54f88; border-radius: 8px; padding: 6px 14px; font-size: 15px; white-space: nowrap; }
+.hud-prompt b { display: inline-block; background: #ffd54f; color: #000; border-radius: 4px; padding: 0 6px; margin-right: 8px; text-shadow: none; }
+.hud-banner { position: absolute; left: 50%; top: 16%; transform: translateX(-50%); text-align: center; opacity: 0; transition: opacity .6s; white-space: nowrap; }
+.hud-banner.show { opacity: 1; }
+.hud-banner b { display: block; font-size: 36px; letter-spacing: .15em; text-shadow: 0 2px 10px #000; }
+.hud-banner small { display: block; font-size: 15px; color: #ffe082; letter-spacing: .1em; }
+.hud-toast { position: absolute; left: 50%; top: 62px; transform: translateX(-50%); background: #0b0f16d8; border: 1px solid #58a6ff88; border-radius: 8px; padding: 6px 14px; font-size: 14px; opacity: 0; transition: opacity .3s; }
+.hud-toast.show { opacity: 1; }
+.hud-debug { display: none; position: absolute; left: 12px; bottom: 12px; background: #000b; border-radius: 8px; padding: 8px 10px; font: 12px/1.5 ui-monospace, Consolas, monospace; white-space: pre; color: #b9f6ca; }
+.hud-dialog { display: none; position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); width: min(620px, 92vw); max-height: 60vh; overflow: auto; background: #0b0f16ee; border: 2px solid #c9d1d9aa; border-radius: 12px; padding: 14px 18px; font-size: 15px; line-height: 1.6; pointer-events: auto; }
+.hud-dialog b { color: #ffd54f; font-size: 17px; }
+.hud-dialog-btns { margin-top: 10px; display: flex; gap: 8px; justify-content: flex-end; }
+.hud-dialog-btns button, .menu-btns button, .wm-head button, .wm-warp { background: #21262d; color: #f0f4f8; border: 1px solid #58a6ff88; border-radius: 8px; padding: 7px 16px; }
+.hud-dialog-btns button:hover, .menu-btns button:hover { background: #30363d; }
+.dlg-list { margin: 4px 0; padding-left: 20px; font-size: 14px; }
+.hud-cross { display: none; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: #fffc; box-shadow: 0 0 2px #000; }
+
+/* ---- ミニマップ ---- */
+.minimap { position: fixed; right: 12px; bottom: 12px; width: 180px; height: 180px; border: 2px solid #30363d; border-radius: 50%; z-index: 11; background: #0b0f16; pointer-events: none; }
+
+/* ---- ワールドマップ ---- */
+.worldmap { display: none; position: fixed; inset: 0; z-index: 30; background: #05080cdd; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 10px; box-sizing: border-box; }
+.wm-head { display: flex; align-items: center; gap: 14px; width: min(92vmin, 980px); }
+.wm-head b { font-size: 18px; color: #ffd54f; }
+.wm-stats { flex: 1; font-size: 13px; color: #c5d1dc; }
+.wm-body { position: relative; width: min(84vmin, 980px); height: min(84vmin, 980px); }
+.wm-canvas { width: 100%; height: 100%; border: 2px solid #30363d; border-radius: 8px; touch-action: none; cursor: crosshair; }
+.wm-info { display: none; position: absolute; left: 10px; top: 10px; max-width: 300px; background: #0b0f16ee; border: 1px solid #58a6ff88; border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 1.6; }
+.wm-info b { color: #ffd54f; font-size: 15px; }
+.wm-warp { display: block; margin-top: 8px; width: 100%; border-color: #ffd54f99 !important; }
+.wm-foot { font-size: 12px; color: #9fb1c2; }
+
+/* ---- メニュー ---- */
+.menu { display: none; position: fixed; inset: 0; z-index: 40; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, #0b0f1660, #05080ccc); }
+.menu-box { background: #0d1117ee; border: 1px solid #30363d; border-radius: 16px; padding: 22px 28px; width: min(560px, 90vw); max-height: 90vh; overflow: auto; text-align: center; }
+.menu h1 { margin: 0 0 4px; font-size: 40px; letter-spacing: .2em; color: #ffd54f; }
+.menu h1 small { font-size: 15px; letter-spacing: .1em; color: #c5d1dc; }
+.menu h2 { margin: 0 0 6px; }
+.menu-sub { color: #c5d1dc; margin: 4px 0 12px; font-size: 14px; }
+.menu-stats { list-style: none; padding: 0; margin: 0 0 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 13px; }
+.menu-stats li { background: #161b22; border-radius: 8px; padding: 6px; }
+.menu-stats b { color: #ffd54f; font-size: 16px; }
+.menu-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 10px 0; }
+.menu-btns button { padding: 10px 22px; font-size: 16px; }
+.menu-btns button.primary { background: #1f6feb; border-color: #58a6ff; }
+.menu-keys { font: 12px/1.6 system-ui, sans-serif; color: #9fb1c2; white-space: pre-wrap; margin: 10px 0 4px; }
+.menu-note { font-size: 12px; color: #8b949e; }
+.menu-bar { height: 10px; background: #161b22; border-radius: 5px; overflow: hidden; margin: 12px 0; }
+.menu-bar div { height: 100%; width: 0; background: linear-gradient(90deg, #1f6feb, #58a6ff); transition: width .2s; }
+.menu-settings { display: grid; gap: 8px; text-align: left; margin: 8px 0 12px; font-size: 14px; }
+.menu-settings label { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; }
+.menu-settings input[type=range] { grid-column: 1 / -1; width: 100%; }
+.menu-settings span { color: #ffd54f; }
+.menu-check { display: flex !important; align-items: center; gap: 6px; }
+
+/* ---- タッチ ---- */
+.touch { position: fixed; inset: 0; z-index: 9; }
+.t-look { position: absolute; inset: 0; }
+.t-stick { position: absolute; left: 40px; bottom: 40px; width: 140px; height: 140px; opacity: .35; pointer-events: none; }
+.t-stick.on { opacity: .9; }
+.t-base { position: absolute; inset: 0; border-radius: 50%; border: 2px solid #ffffff88; background: #ffffff18; }
+.t-knob { position: absolute; left: 45px; top: 45px; width: 50px; height: 50px; border-radius: 50%; background: #ffffffaa; }
+.t-btn { position: absolute; border-radius: 50%; border: 2px solid #ffffff88; background: #0b0f16a0; color: #fff; font-size: 13px; font-weight: bold; }
+.t-jump { right: 210px; bottom: 40px; width: 78px; height: 78px; }
+.t-act { right: 220px; bottom: 132px; width: 64px; height: 64px; border-color: #ffd54f; }
+.t-top { position: absolute; right: 12px; top: 12px; display: flex; gap: 8px; }
+.t-top button { min-width: 44px; height: 40px; border-radius: 10px; border: 1px solid #ffffff66; background: #0b0f16a0; color: #fff; }
+.t-top button.on { background: #ff7043; }
+body.touch-on .hud-status { transform: scale(.85); transform-origin: top left; }
+body.touch-on .hud-compass { top: 58px; }
+body.touch-on .minimap { width: 150px; height: 150px; bottom: 12px; right: 12px; }
+
+@keyframes blink { 50% { opacity: .4; } }
+@media (max-height: 500px) {
+  .hud-dialog { bottom: 8px; max-height: 80vh; font-size: 14px; }
+  .hud-banner b { font-size: 26px; }
+  .minimap { width: 130px; height: 130px; }
+}

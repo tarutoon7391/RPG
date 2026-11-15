@@ -1,0 +1,85 @@
+// タイトル・ロード画面・ポーズ（画質設定つき）
+import { WORLD } from '../config.js';
+
+export function createMenu() {
+  const el = document.createElement('div');
+  el.className = 'menu';
+  document.body.appendChild(el);
+  let mode = null;
+
+  function show(html) {
+    el.innerHTML = `<div class="menu-box">${html}</div>`;
+    el.style.display = 'flex';
+  }
+  function hide() {
+    el.style.display = 'none';
+    el.innerHTML = '';
+    mode = null;
+  }
+
+  return {
+    get mode() { return mode; },
+    hide,
+    /** ロード中 */
+    loading(text, ratio) {
+      if (mode !== 'loading') {
+        mode = 'loading';
+        show(`<h1>RPG</h1><p class="menu-sub">ワールドを生成中…</p><div class="menu-bar"><div></div></div><p class="menu-note"></p>`);
+      }
+      el.querySelector('.menu-bar div').style.width = `${Math.round(ratio * 100)}%`;
+      el.querySelector('.menu-note').textContent = text;
+    },
+    title({ hasSave, stats, onNew, onContinue }) {
+      mode = 'title';
+      show(`
+        <h1>RPG <small>ワールドテスト</small></h1>
+        <p class="menu-sub">${WORLD.sizeKm}km 四方の大陸を歩き回るだけのテスト版</p>
+        <ul class="menu-stats">${stats.map((s) => `<li>${s}</li>`).join('')}</ul>
+        <div class="menu-btns">
+          ${hasSave ? '<button type="button" data-b="cont" class="primary">つづきから</button>' : ''}
+          <button type="button" data-b="new" class="${hasSave ? '' : 'primary'}">はじめから（王都から）</button>
+        </div>
+        <pre class="menu-keys">WASD：移動　Shift：ダッシュ　Space：ジャンプ　マウス：視点（クリックでロック）
+F：調べる・入る　M：マップ　V：一人称／三人称　G：爆速（テスト用）　F3：デバッグ表示　Esc：ポーズ</pre>
+        <p class="menu-note">広さを変える：URL の末尾に ?size=8 / 16 / 32 / 64 / 128（km）</p>`);
+      el.querySelector('[data-b="new"]').onclick = onNew;
+      el.querySelector('[data-b="cont"]')?.addEventListener('click', onContinue);
+    },
+    /**
+     * ポーズ。q は画質設定（変えると onChange）
+     */
+    pause({ q, info, onResume, onMap, onChange, onTitle }) {
+      mode = 'pause';
+      show(`
+        <h2>ポーズ</h2>
+        <p class="menu-sub">${info}</p>
+        <div class="menu-settings">
+          <label>描画距離 <span data-v="viewDist"></span><input type="range" data-q="viewDist" min="2000" max="40000" step="1000"></label>
+          <label>地形の細かさ <span data-v="detail"></span><input type="range" data-q="detail" min="0.8" max="3" step="0.1"></label>
+          <label>木や岩の範囲 <span data-v="propDist"></span><input type="range" data-q="propDist" min="1" max="9" step="1"></label>
+          <label>解像度 <span data-v="pixelRatio"></span><input type="range" data-q="pixelRatio" min="0.5" max="2" step="0.25"></label>
+          <label class="menu-check"><input type="checkbox" data-q="shadows"> 影</label>
+        </div>
+        <div class="menu-btns">
+          <button type="button" data-b="resume" class="primary">再開</button>
+          <button type="button" data-b="map">マップ</button>
+          <button type="button" data-b="title">タイトルへ</button>
+        </div>`);
+      const fmt = { viewDist: (v) => `${(v / 1000).toFixed(0)}km`, detail: (v) => `×${(+v).toFixed(1)}`, propDist: (v) => `${v * 128}m`, pixelRatio: (v) => `×${v}` };
+      for (const inp of el.querySelectorAll('[data-q]')) {
+        const k = inp.dataset.q;
+        const lab = el.querySelector(`[data-v="${k}"]`);
+        if (inp.type === 'checkbox') inp.checked = q[k];
+        else { inp.value = q[k]; lab.textContent = fmt[k](q[k]); }
+        inp.oninput = () => {
+          q[k] = inp.type === 'checkbox' ? inp.checked : Number(inp.value);
+          if (lab) lab.textContent = fmt[k](q[k]);
+          onChange(k);
+        };
+      }
+      el.querySelector('[data-b="resume"]').onclick = onResume;
+      el.querySelector('[data-b="map"]').onclick = onMap;
+      el.querySelector('[data-b="title"]').onclick = onTitle;
+    },
+  };
+}
