@@ -1,5 +1,6 @@
 // 主人公の見た目（三人称のときに見える）。プリミティブのローポリ
 import * as THREE from 'three';
+import { buildSkinned, disposeBuilt, HELD_SCALE } from './weapons/view.js';
 
 export function makeHero() {
   const group = new THREE.Group();
@@ -45,15 +46,49 @@ export function makeHero() {
 
   group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
 
+  // 手に持つ武器（体の右手 = -X 側の腕）。3DRPG と同じく腕の先から腕の向きへ伸ばす
+  const handR = armL; // 前（+Z）を向いた体の右手は -X 側
+  const handL = armR;
+  let held = [];
+  let atk = 0;
+  function setWeapon(slot) {
+    for (const h of held) { h.holder.parent.remove(h.holder); disposeBuilt(h.built); }
+    held = [];
+    sword.visible = !slot;
+    if (!slot) return;
+    const put = (arm, mirror) => {
+      const b = buildSkinned(slot.id, slot.rarity);
+      b.group.scale.multiplyScalar(HELD_SCALE);
+      if (mirror) b.group.scale.x *= -1;
+      b.group.rotation.x = b.hold === 'aim' ? -Math.PI / 2 : Math.PI;
+      b.group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+      const holder = new THREE.Group();
+      holder.position.set(0, -0.66 + (b.hold === 'fist' ? 0.05 : 0.04), 0);
+      holder.add(b.group);
+      arm.add(holder);
+      held.push({ holder, built: b });
+      return b;
+    };
+    const b = put(handR, false);
+    if (b.dual) put(handL, true);
+  }
+  function attack() { atk = 0.3; }
+
   /** 歩きのアニメ（phase は歩いた量、amp は 0〜1） */
-  function animate(phase, amp, swim) {
+  function animate(phase, amp, swim, dt = 0.016) {
     const s = Math.sin(phase) * 0.8 * amp;
     legL.rotation.x = s;
     legR.rotation.x = -s;
     armL.rotation.x = -s * 0.9;
     armR.rotation.x = s * 0.9;
+    if (held.length) handR.rotation.x = -0.5 + s * 0.3; // 武器を少し前に構える
+    if (atk > 0) {
+      atk = Math.max(0, atk - dt);
+      const k = 1 - atk / 0.3;
+      handR.rotation.x = -2.6 + k * 2.6;
+    }
     root.position.y = Math.abs(Math.cos(phase)) * 0.06 * amp;
     root.rotation.x = swim ? 1.2 : 0;
   }
-  return { group, root, animate };
+  return { group, root, animate, setWeapon, attack };
 }

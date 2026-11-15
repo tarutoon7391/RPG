@@ -352,11 +352,35 @@ export function buildIsland(scene, island, L, colliders, platforms) {
     colliders.setGroup('chests', chests.map((c) => ({ x: c.x, z: c.z, r: 0.6 })));
   }
 
+  // ---- 武器が落ちている場所の候補（家の中・建物の上の階・塔のてっぺんなど） ----
+  const lootSpots = [];
+  const spot = (x, z, y, kind) => lootSpots.push({ x, z, y, kind });
+  for (const h of houses) spot(h.x, h.z, island.height(h.x, h.z), 'house');
+  {
+    const T = L.town;
+    const cz = T.z - 60;
+    spot(T.x + 6, cz + 8, T.h, 'castle');
+    spot(T.x + 8, cz, T.h + 8, 'castle2');
+    spot(T.x - 8, cz + 8, T.h + 16, 'roof');
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) spot(T.x + sx * 29 + sx * 2.5, cz + sz * 24, T.h + 30, 'towertop');
+    const F = L.fort;
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) spot(F.x + sx * 30 + sx * 2, F.z + sz * 30, F.h + 14, 'towertop');
+    spot(F.x + 3, F.z - 10, F.h + 5, 'keep2');
+    spot(F.x - 3, F.z - 6, F.h + 10, 'roof');
+    spot(L.lighthouse.x + 1.5, L.lighthouse.z + 1.5, L.lighthouse.h + 24, 'towertop');
+    const Hb = L.harbor;
+    for (const [x, z] of [[-30, -18], [-8, -26], [26, -20]]) spot(Hb.x + x + 2, Hb.z + z, Hb.h + 4, 'warehouse2');
+    spot(Hb.x + 34, Hb.z + 80, Hb.h + 1.5, 'ship');
+    for (const t of L.towers) spot(t.x, t.z, t.h + 6, 'watch');
+    spot(L.hut.x, L.hut.z - 0.5, L.hut.h + 2.6, 'hut');
+  }
+
   return {
     group,
     acts,
     chests,
     houses,
+    lootSpots,
     animate(dt) { for (const a of anims) a(dt); },
     nearest(px, pz) {
       let best = null;

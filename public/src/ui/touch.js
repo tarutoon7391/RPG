@@ -18,6 +18,7 @@ export function createTouch({ onPause, onView, onMap, onBoost }) {
     <div class="t-stick"><div class="t-base"></div><div class="t-knob"></div></div>
     <button type="button" class="t-btn t-jump" data-k="jump">ジャンプ</button>
     <button type="button" class="t-btn t-act" data-k="interact">調べる</button>
+    <button type="button" class="t-btn t-atk" data-k="attack">攻撃</button>
     <div class="t-top">
       <button type="button" data-a="pause">⏸</button>
       <button type="button" data-a="map">🗺</button>

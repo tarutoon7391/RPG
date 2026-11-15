@@ -29,7 +29,7 @@ export function createMenu() {
       el.querySelector('.menu-bar div').style.width = `${Math.round(ratio * 100)}%`;
       el.querySelector('.menu-note').textContent = text;
     },
-    title({ hasSave, stats, onNew, onContinue, onSettings, heading = 'RPG <small>ワールドテスト</small>', sub = `${WORLD.sizeKm}km 四方の大陸を歩き回るだけのテスト版`, newLabel = 'はじめから（王都から）', keys, note = '広さを変える：URL の末尾に ?size=8 / 16 / 32 / 64 / 128（km）' }) {
+    title({ hasSave, stats, onNew, onContinue, onSettings, onGallery, heading = 'RPG <small>ワールドテスト</small>', sub = `${WORLD.sizeKm}km 四方の大陸を歩き回るだけのテスト版`, newLabel = 'はじめから（王都から）', keys, note = '広さを変える：URL の末尾に ?size=8 / 16 / 32 / 64 / 128（km）' }) {
       mode = 'title';
       show(`
         <h1>${heading}</h1>
@@ -38,6 +38,7 @@ export function createMenu() {
         <div class="menu-btns">
           ${hasSave ? '<button type="button" data-b="cont" class="primary">つづきから</button>' : ''}
           <button type="button" data-b="new" class="${hasSave ? '' : 'primary'}">${newLabel}</button>
+          ${onGallery ? '<button type="button" data-b="gallery">武器図鑑</button>' : ''}
           ${onSettings ? '<button type="button" data-b="settings">設定</button>' : ''}
         </div>
         <pre class="menu-keys">${keys || `WASD：移動　Shift：ダッシュ　Space：ジャンプ　マウス：視点（クリックでロック）
@@ -46,11 +47,12 @@ F：調べる・入る　M：マップ　V：一人称／三人称　G：爆速�
       el.querySelector('[data-b="new"]').onclick = onNew;
       el.querySelector('[data-b="cont"]')?.addEventListener('click', onContinue);
       el.querySelector('[data-b="settings"]')?.addEventListener('click', onSettings);
+      el.querySelector('[data-b="gallery"]')?.addEventListener('click', onGallery);
     },
     /**
      * ポーズ。q は設定（変えると onChange）。touch：スマホならスマホの感度を上に出す
      */
-    pause({ q, info, touch = false, onResume, onMap, onChange, onTitle }) {
+    pause({ q, info, touch = false, onResume, onMap, onChange, onTitle, onGallery }) {
       mode = 'pause';
       show(`
         <h2>ポーズ</h2>
@@ -59,9 +61,11 @@ F：調べる・入る　M：マップ　V：一人称／三人称　G：爆速�
         <div class="menu-btns">
           <button type="button" data-b="resume" class="primary">再開</button>
           <button type="button" data-b="map">マップ</button>
+          ${onGallery ? '<button type="button" data-b="gallery">武器図鑑</button>' : ''}
           <button type="button" data-b="title">タイトルへ</button>
         </div>`);
       bind(q, onChange);
+      el.querySelector('[data-b="gallery"]')?.addEventListener('click', onGallery);
       el.querySelector('[data-b="resume"]').onclick = onResume;
       el.querySelector('[data-b="map"]').onclick = onMap;
       el.querySelector('[data-b="title"]').onclick = onTitle;

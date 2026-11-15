@@ -1,5 +1,5 @@
 // エンジン：レンダラー・シーン・カメラとメインループ（3DGAME の shared/engine.js と同じ契約）
-// 広いマップ用に「対数深度バッファ」と遠いファークリップを足している
+// 広いマップ用に「対数深度バッファ」と遠いファークリップ、一人称の手を重ねる overlay を足している
 import * as THREE from 'three';
 
 const MAX_DT = 0.05; // 1フレームの最大経過秒（タブ復帰時のワープ防止）
@@ -28,7 +28,7 @@ export function createApp({ canvas, antialias = true, far = 1000, logDepth = fal
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(60, 1, 0.1, far);
 
-  const app = { renderer, scene, camera, pixelRatioMax: maxPixelRatio, start, stop, resize };
+  const app = { renderer, scene, camera, pixelRatioMax: maxPixelRatio, overlay: null, start, stop, resize };
 
   function resize() {
     const w = window.innerWidth;
@@ -55,6 +55,14 @@ export function createApp({ canvas, antialias = true, far = 1000, logDepth = fal
     elapsed += dt;
     if (updateFn) updateFn(dt, elapsed);
     renderer.render(scene, camera);
+    // 上に重ねる絵（一人称の手と武器など）：深度だけ消してから描く
+    const ov = app.overlay;
+    if (ov && ov.scene.visible) {
+      renderer.autoClear = false;
+      renderer.clearDepth();
+      renderer.render(ov.scene, ov.camera);
+      renderer.autoClear = true;
+    }
   }
 
   function start(update) {

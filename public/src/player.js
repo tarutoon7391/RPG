@@ -3,7 +3,7 @@ import { MOVE, WORLD } from './config.js';
 import { makeHero } from './hero.js';
 
 export function emptyIntent(o = {}) {
-  o.moveX = 0; o.moveZ = 0; o.dash = false; o.jump = false; o.interact = false;
+  o.moveX = 0; o.moveZ = 0; o.dash = false; o.jump = false; o.interact = false; o.attack = false;
   return o;
 }
 
@@ -94,7 +94,7 @@ export function createPlayer(scene) {
       let d = p.yaw - cur;
       d = Math.atan2(Math.sin(d), Math.cos(d));
       hero.group.rotation.y = cur + d * Math.min(1, dt * 12);
-      hero.animate(p.walkPhase, p.walking ? Math.min(1, speed / MOVE.dash + 0.4) : 0, p.swimming);
+      hero.animate(p.walkPhase, p.walking ? Math.min(1, speed / MOVE.dash + 0.4) : 0, p.swimming, dt);
     },
   };
   return p;

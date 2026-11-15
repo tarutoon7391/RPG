@@ -96,3 +96,52 @@ body.touch-on .minimap { width: 150px; height: 150px; bottom: 12px; right: 12px;
   .hud-banner b { font-size: 26px; }
   .minimap { width: 130px; height: 130px; }
 }
+
+/* ---- 武器の持ち物バー ---- */
+.wbar { display: none; position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); gap: 6px; z-index: 13; }
+.wslot { position: relative; min-width: 150px; max-width: 190px; text-align: left; background: #0b0f16c8; color: #f0f4f8; border: 2px solid #30363d; border-left: 5px solid var(--rc, #30363d); border-radius: 8px; padding: 5px 8px 5px 22px; pointer-events: auto; }
+.wslot.on { border-color: #ffd54f; border-left-color: var(--rc, #ffd54f); box-shadow: 0 0 10px #ffd54f55; }
+.wslot small { position: absolute; left: 7px; top: 5px; font-size: 11px; color: #9fb1c2; }
+.wslot b { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wslot em { display: block; font-style: normal; font-size: 11px; color: var(--rc, #9fb1c2); }
+.wslot .wempty { font-size: 13px; color: #8b949e; line-height: 30px; }
+body.touch-on .wbar { bottom: auto; top: 58px; left: auto; right: 12px; transform: none; flex-direction: column; }
+body.touch-on .wslot { min-width: 120px; max-width: 140px; padding: 3px 6px 3px 20px; }
+body.touch-on .hud-prompt { bottom: 70px; }
+.hud-prompt { bottom: 84px; }
+.t-atk { right: 120px; bottom: 120px; width: 84px; height: 84px; border-color: #ff8a65; background: #3a1a12a8; font-size: 15px; }
+
+/* ---- 武器図鑑 ---- */
+.gallery { display: none; position: fixed; inset: 0; z-index: 45; background: #05080cf0; flex-direction: column; padding: 12px; box-sizing: border-box; gap: 8px; }
+.gl-head { display: flex; align-items: center; gap: 14px; }
+.gl-head b { font-size: 20px; color: #ffd54f; }
+.gl-count { flex: 1; color: #9fb1c2; font-size: 13px; }
+.gl-head button, .gl-tabs button, .gl-item, .gl-skin { background: #161b22; color: #f0f4f8; border: 1px solid #30363d; border-radius: 8px; }
+.gl-head button { padding: 7px 16px; }
+.gl-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.gl-tabs button { padding: 5px 10px; font-size: 13px; }
+.gl-tabs button.on { background: #1f6feb; border-color: #58a6ff; }
+.gl-body { flex: 1; display: grid; grid-template-columns: minmax(200px, 300px) 1fr; gap: 10px; min-height: 0; }
+.gl-list { overflow: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 4px; touch-action: pan-y; }
+.gl-item { text-align: left; padding: 6px 8px; font-size: 14px; display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 6px; }
+.gl-item small { color: #8b949e; }
+.gl-item em { font-style: normal; font-size: 11px; color: #9fb1c2; }
+.gl-item.on { border-color: #ffd54f; background: #2a2410; }
+.gl-view { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.gl-canvas { flex: 1; width: 100%; min-height: 0; background: radial-gradient(ellipse at center, #1e2a3a, #0b0f16); border-radius: 12px; border: 1px solid #30363d; touch-action: none; }
+.gl-skins { display: flex; gap: 6px; flex-wrap: wrap; }
+.gl-skin { flex: 1; min-width: 80px; padding: 6px; border-bottom: 4px solid var(--rc); font-size: 14px; }
+.gl-skin small { display: block; font-size: 11px; color: var(--rc); }
+.gl-skin.on { background: #2a2f3a; border-color: var(--rc); }
+.gl-info { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: #c5d1dc; }
+.gl-info b { font-size: 18px; }
+.gl-info small { color: #8b949e; }
+@media (max-height: 500px) {
+  .gl-body { grid-template-columns: 220px 1fr; }
+  .gl-item { padding: 4px 6px; font-size: 13px; }
+}
+/* スマホ：ボタンとミニマップが重ならないように */
+body.touch-on .minimap { width: 130px; height: 130px; }
+body.touch-on .t-jump { right: 160px; bottom: 22px; width: 76px; height: 76px; }
+body.touch-on .t-atk { right: 160px; bottom: 112px; width: 84px; height: 84px; }
+body.touch-on .t-act { right: 258px; bottom: 60px; width: 64px; height: 64px; }

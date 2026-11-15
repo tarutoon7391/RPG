@@ -16,6 +16,11 @@ import { createHud } from '../ui/hud.js';
 import { createMenu } from '../ui/menu.js';
 import { createTouch, isTouchDevice } from '../ui/touch.js';
 import { esc, fmtDist } from '../util.js';
+import { createLoot } from '../weapons/loot.js';
+import { createInventory } from '../weapons/inventory.js';
+import { createViewModel } from '../weapons/viewmodel.js';
+import { createGallery } from '../weapons/gallery.js';
+import { WEAPON_LIST, rollRarity, RARITIES, WEAPONS_BY_ID } from '../weapons/catalog.js';
 
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
 const DROP_HEIGHT = 140; // 降下を始める高さ（地面から）
@@ -55,6 +60,26 @@ export async function startIsland() {
   tiles.update(0, 0, 300, 0, true);
   props.update(0, 0, 0, true);
 
+  // ---- 武器 ----
+  const loot = createLoot(scene);
+  const viewmodel = createViewModel(app);
+  const inv = createInventory({ onChange: (slot) => { viewmodel.set(slot); player.hero.setWeapon(slot); } });
+  inv.setVisible(false);
+  viewmodel.setVisible(false);
+  let galleryBack = null;
+  const gallery = createGallery({ onClose: () => galleryBack?.() });
+  const randomWeapon = () => WEAPON_LIST[Math.floor(Math.random() * WEAPON_LIST.length)];
+  /** 試合ごとに落とし物を置き直す（家は 3 軒に 1 軒くらい、建物の上や塔のてっぺんは必ず。高いところほど良い物が出やすい） */
+  function spawnLoot() {
+    for (const it of [...loot.items]) loot.remove(it);
+    for (const sp of built.lootSpots) {
+      if (sp.kind === 'house' && Math.random() > 0.35) continue;
+      const bonus = sp.kind === 'towertop' || sp.kind === 'roof' ? 0.45 : sp.kind === 'house' ? 0 : 0.2;
+      const r = rollRarity(Math.min(0.999, Math.random() * (1 - bonus) + bonus));
+      loot.drop(randomWeapon().id, r, sp.x, sp.y, sp.z);
+    }
+  }
+
   let state = 'title';
   let areaId = null;
   let areaT = 0;
@@ -62,6 +87,7 @@ export async function startIsland() {
   let fps = 60;
   let expectUnlock = false;
   const opened = new Set();
+  let matchStarted = false;
   const intent = emptyIntent();
 
   // ---- 乗れる板込みの地面 ----
@@ -105,6 +131,8 @@ export async function startIsland() {
     hud.root.style.display = 'none';
     map.setMiniVisible(false);
     touch?.setVisible(false);
+    inv.setVisible(false);
+    viewmodel.setVisible(false);
     menu.title({
       hasSave: false,
       heading: 'BATTLE ISLAND <small>マップテスト</small>',
@@ -119,11 +147,13 @@ export async function startIsland() {
       keys: 'WASD：移動　Shift：ダッシュ　Space：ジャンプ　マウス：視点（クリックでロック）\nF：調べる　M：地図　V：一人称／三人称　G：爆速（テスト用）　F3：デバッグ　Esc：ポーズ',
       note: '広大マップのテストは <a href="/world/" style="color:#58a6ff">/world/</a>',
       onSettings: () => menu.settings({ q, touch: touchMode, onChange: onQuality, onBack: () => showTitle() }),
+      onGallery: () => { menu.hide(); galleryBack = () => showTitle(); gallery.open(); },
       onNew: () => { menu.hide(); openDrop(); },
     });
   }
 
   function openDrop() {
+    matchStarted = false;
     state = 'map';
     map.open(null, { drop: true });
   }
@@ -131,6 +161,13 @@ export async function startIsland() {
   /** (x, z) の上空から降下 */
   function drop(x, z) {
     menu.hide();
+    if (!matchStarted) {
+      matchStarted = true;
+      inv.clear();
+      opened.clear();
+      spawnLoot();
+    }
+    inv.setVisible(true);
     hud.root.style.display = 'block';
     map.setMiniVisible(true);
     touch?.setVisible(true);
@@ -169,6 +206,7 @@ export async function startIsland() {
       onResume: () => { menu.hide(); resumeLock(); },
       onMap: () => { menu.hide(); state = 'play'; openMap(); },
       onTitle: () => showTitle(),
+      onGallery: () => { menu.hide(); galleryBack = () => { state = 'play'; pause(); }; gallery.open(); },
       onChange: onQuality,
     });
   }
@@ -192,10 +230,26 @@ export async function startIsland() {
   // ---- 調べる ----
   function interact(a) {
     if (!a) return;
+    if (a.kind === 'loot') {
+      const it = a.item;
+      const dropped = inv.pickUp(it);
+      loot.remove(it);
+      if (dropped) loot.drop(dropped.id, dropped.rarity, player.pos.x, player.pos.y, player.pos.z);
+      const R = RARITIES[it.rarity];
+      hud.toast(`${WEAPONS_BY_ID[it.id].name}（${R.name}）を拾った${dropped ? '（持っていた武器と入れ替え）' : ''}`, 2.2);
+      return;
+    }
     if (a.kind === 'chest') {
       if (opened.has(a.chest)) { hud.toast('もう空っぽだ'); return; }
       opened.add(a.chest);
-      hud.toast(`宝箱を開けた！（中身は今後の実装）　${opened.size} / ${built.chests.length}`, 2.6);
+      const c = built.chests[a.chest];
+      // 宝箱はちょっと良い物が出やすい。2 個のことも
+      const n = Math.random() < 0.3 ? 2 : 1;
+      for (let i = 0; i < n; i++) {
+        const ang = Math.atan2(player.pos.x - c.x, player.pos.z - c.z) + (i - (n - 1) / 2) * 0.8;
+        loot.drop(randomWeapon().id, rollRarity(Math.random() * 0.75 + 0.25), c.x + Math.sin(ang) * 1.6, c.y, c.z + Math.cos(ang) * 1.6);
+      }
+      hud.toast(`宝箱を開けた！武器が ${n} 本出てきた`, 2.2);
     } else if (a.kind === 'tunnel') {
       const here = TUNNELS.find((t) => t.id === a.tunnel);
       unlock();
@@ -256,8 +310,13 @@ export async function startIsland() {
     tiles.update(camera.position.x, camera.position.z, cy, 5);
     props.update(player.pos.x, player.pos.z, 3);
 
-    const act = player.gliding ? null : built.nearest(player.pos.x, player.pos.z);
+    const lootIt = player.gliding ? null : loot.nearest(player.pos.x, player.pos.z, player.pos.y);
+    const act = player.gliding ? null : lootIt ? { kind: 'loot', item: lootIt, label: loot.label(lootIt) } : built.nearest(player.pos.x, player.pos.z);
     hud.setPrompt(act ? (act.kind === 'chest' && opened.has(act.chest) ? '空の宝箱' : act.label) : '');
+    loot.update(dt, player.pos.x, player.pos.z);
+    viewmodel.setVisible(state === 'play' && cam.fps);
+    viewmodel.update(dt, player.walking ? 1 : 0, player.walkPhase);
+    if (intent.attack && !player.gliding) { if (viewmodel.attack()) player.hero.attack(); }
     if (intent.interact) interact(act);
     areaT -= dt;
     if (areaT <= 0) { areaT = 0.3; checkArea(); }
@@ -295,6 +354,10 @@ export async function startIsland() {
     if (input.wasPressed('KeyV')) toggleView();
     if (input.wasPressed('KeyG')) toggleBoost();
     if (input.wasPressed('KeyM')) openMap();
+    // 武器：攻撃（左クリック／攻撃ボタン）・持ち替え（1〜3／一人称ならホイール）
+    intent.attack = (input.mouse.locked && input.isDown('Mouse0')) || !!touch?.state.held.has('attack');
+    for (let i = 0; i < 3; i++) if (input.wasPressed(`Digit${i + 1}`)) inv.select(i);
+    if (cam.fps && input.mouse.locked && input.mouse.wheel) inv.next(Math.sign(input.mouse.wheel));
   }
 
   function checkArea() {
@@ -322,7 +385,7 @@ export async function startIsland() {
   }
 
   if (new URLSearchParams(location.search).has('debug')) {
-    window.__rpg = { island, built, player, cam, drop, exitTunnel, toggleView, interact, platforms, get state() { return state; }, stats: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, tiles: { ...tiles.stats }, props: { ...props.stats }, fps }) };
+    window.__rpg = { island, built, player, cam, drop, exitTunnel, toggleView, interact, platforms, loot, inv, viewmodel, get state() { return state; }, stats: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, tiles: { ...tiles.stats }, props: { ...props.stats }, fps }) };
   }
   showTitle();
 }
