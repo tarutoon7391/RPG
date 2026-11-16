@@ -134,9 +134,8 @@ export async function startIsland() {
     }
     const range = curDef.range;
     const a = aimPoint(range);
-    // 覗き込み中は、弾を目の少し先から出す（スコープの中が弾で埋まらないように）
-    if (aiming) from.copy(camera.position).addScaledVector(ray.ray.direction, 2.5);
-    else from.copy(camera.localToWorld(viewmodel.muzzleLocal(from)));
+    // 弾は十字の真後ろ（目の少し先）から出して、十字の線の上をまっすぐ飛ばす
+    from.copy(camera.position).addScaledVector(ray.ray.direction, aiming ? 2.5 : 1.2);
     const target = a.dummy;
     const part = a.part;
     const at = a.point.clone();

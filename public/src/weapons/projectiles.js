@@ -171,9 +171,8 @@ export function createProjectiles(scene) {
     }
     group.add(obj);
     const vel = dir.clone().multiplyScalar(speed);
-    // 重力のある物は、落ちる分だけ少し上へ向けて投げる
-    if (shot.gravity) vel.y += (shot.gravity * life) / 2;
-    live.push({ obj, vel, gravity: shot.gravity || 0, left: life, kind: k, to: to.clone(), color, onArrive });
+    // 弾道は全部まっすぐ（十字の線から外れない。山なりにすると十字より上へ飛んで見えるため）
+    live.push({ obj, vel, gravity: 0, left: life, kind: k, to: to.clone(), color, onArrive });
   }
 
   function update(dt) {
